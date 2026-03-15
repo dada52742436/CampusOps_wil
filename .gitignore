@@ -1,0 +1,72 @@
+# ============================================================
+# OS & Editor
+# ============================================================
+.DS_Store
+Thumbs.db
+*.docx~
+~$*.docx
+
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+
+# ============================================================
+# Node.js (shared)
+# ============================================================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.npm
+.yarn/cache
+.pnp.*
+
+# ============================================================
+# Environment Variables (NEVER commit secrets)
+# ============================================================
+.env
+.env.*
+!.env.example
+
+# ============================================================
+# Backend — NestJS
+# ============================================================
+backend/dist/
+backend/build/
+backend/coverage/
+
+# ============================================================
+# Backend — Prisma 7
+# ============================================================
+# Prisma 7 generates client into src/generated/ or prisma/generated/
+# These are regenerated via `prisma generate`, no need to commit
+backend/src/generated/
+backend/generated/
+backend/prisma/generated/
+
+# Prisma migration lock is useful to commit, but generated SQL is not
+# (keep migrations/ folder, it IS committed)
+
+# ============================================================
+# Frontend — React / Vite (created in later steps)
+# ============================================================
+frontend/dist/
+frontend/build/
+frontend/.next/
+frontend/out/
+frontend/coverage/
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
+
+# ============================================================
+# Logs & Temp
+# ============================================================
+*.log
+*.pid
+*.pid.lock
+.cache/
+tmp/
+temp/
