@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 import { PrismaModule } from './prisma/prisma.module.js';
+import { UsersModule } from './users/users.module.js';
 
 @Module({
   imports: [
@@ -10,6 +11,8 @@ import { PrismaModule } from './prisma/prisma.module.js';
     ConfigModule.forRoot({ isGlobal: true }),
     // PrismaModule 是 @Global()，注册一次后所有模块都能注入 PrismaService
     PrismaModule,
+    // UsersModule 提供用户数据访问能力，AuthModule 会依赖它
+    UsersModule,
   ],
   controllers: [AppController],
   providers: [AppService],
