@@ -40,14 +40,10 @@ backend/coverage/
 # ============================================================
 # Backend — Prisma 7
 # ============================================================
-# Prisma 7 generates client into src/generated/ or prisma/generated/
-# These are regenerated via `prisma generate`, no need to commit
-backend/src/generated/
-backend/generated/
-backend/prisma/generated/
-
-# Prisma migration lock is useful to commit, but generated SQL is not
-# (keep migrations/ folder, it IS committed)
+# Prisma 7 generates client into generated/ — regenerated via `prisma generate`
+# Exclude generated TypeScript files but keep our manually created package.json
+backend/generated/**
+!backend/generated/prisma/package.json
 
 # ============================================================
 # Frontend — React / Vite (created in later steps)
