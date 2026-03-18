@@ -6,6 +6,7 @@ import { PrismaModule } from './prisma/prisma.module.js';
 import { UsersModule } from './users/users.module.js';
 import { AuthModule } from './auth/auth.module.js';
 import { ProtectedController } from './protected/protected.controller.js';
+import { ListingsModule } from './listings/listings.module.js';
 
 @Module({
   imports: [
@@ -13,6 +14,7 @@ import { ProtectedController } from './protected/protected.controller.js';
     PrismaModule,
     UsersModule,
     AuthModule,
+    ListingsModule, // Listing CRUD module
   ],
   controllers: [AppController, ProtectedController],
   providers: [AppService],

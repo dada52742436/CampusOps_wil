@@ -2,21 +2,47 @@
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
+  provider     = "prisma-client"
+  output       = "../generated/prisma"
+  moduleFormat = "esm"
 }
 
 datasource db {
   provider = "postgresql"
 }
 
+// ── User ──────────────────────────────────────────────────────────────────────
 model User {
-  id        Int      @id @default(autoincrement())
-  email     String   @unique
+  id        Int       @id @default(autoincrement())
+  email     String    @unique
   username  String
   password  String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  // One user can own many listings (one-to-many)
+  listings  Listing[]
 
   @@map("users")
+}
+
+// ── Listing ───────────────────────────────────────────────────────────────────
+// Represents a piano listing posted by a user on the platform.
+model Listing {
+  id          Int      @id @default(autoincrement())
+  title       String
+  description String
+  price       Float
+  brand       String?  // optional: piano brand (e.g. "Yamaha", "Kawai")
+  condition   String   // one of: "new" | "like_new" | "good" | "fair" | "poor"
+  location    String?  // optional: city or region
+
+  // Foreign key — the user who created this listing
+  ownerId     Int
+  owner       User     @relation(fields: [ownerId], references: [id])
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("listings")
 }
