@@ -1,12 +1,12 @@
-# Project Context — User Login System MVP
+# Project Context — Piano Listing Platform (Melbourne)
 
-> 用于在新对话中恢复上下文。当前状态：**全部完成，所有测试通过。**
+> 用于在新对话中恢复上下文。当前状态：**Listing 模块 MVP 全部完成，所有测试通过。**
 
 ---
 
 ## 项目概述
 
-在 `x:\my-project150326` 下搭建了一个完整的用户登录系统 MVP，包含：
+在 `x:\my-project150326` 下搭建了一个墨尔本二手钢琴平台，包含：
 
 - **Backend**: NestJS 11 (strict TypeScript) + Prisma 7 + PostgreSQL + JWT
 - **Frontend**: React 19 + Vite 8 + TypeScript + React Router v7 + Axios

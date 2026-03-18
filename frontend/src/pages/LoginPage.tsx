@@ -20,7 +20,7 @@ export function LoginPage() {
     try {
       const response = await loginApi({ email, password });
       login(response);          // 存入 context + localStorage
-      navigate('/dashboard');   // 跳转到受保护页面
+      navigate('/listings');    // Redirect to listings after login
     } catch (err: unknown) {
       // 从 axios 错误中提取后端返回的 message
       const message =

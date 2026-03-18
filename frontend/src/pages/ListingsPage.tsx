@@ -33,6 +33,11 @@ export function ListingsPage() {
               My Listings
             </Link>
           )}
+          {user && (
+            <Link to="/dashboard" style={styles.btnSecondary}>
+              Dashboard
+            </Link>
+          )}
           {!user && (
             <Link to="/login" style={styles.btnSecondary}>
               Login to Post

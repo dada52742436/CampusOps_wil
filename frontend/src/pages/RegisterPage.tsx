@@ -21,7 +21,7 @@ export function RegisterPage() {
     try {
       const response = await registerApi({ email, username, password });
       login(response);          // 注册成功后直接登录
-      navigate('/dashboard');
+      navigate('/listings');    // Redirect to listings after registration
     } catch (err: unknown) {
       const message =
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { getProfile } from '../api/auth';
 import { useAuth } from '../context/AuthContext';
 
@@ -38,9 +38,12 @@ export function DashboardPage() {
       <div style={styles.card}>
         <div style={styles.header}>
           <h2 style={styles.title}>欢迎回来，{user?.username} 👋</h2>
-          <button style={styles.logoutBtn} onClick={handleLogout}>
-            退出登录
-          </button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <Link to="/listings" style={styles.logoutBtn}>Browse Listings</Link>
+            <button style={styles.logoutBtn} onClick={handleLogout}>
+              退出登录
+            </button>
+          </div>
         </div>
 
         <div style={styles.divider} />
