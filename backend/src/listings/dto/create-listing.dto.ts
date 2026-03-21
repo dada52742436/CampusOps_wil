@@ -5,11 +5,12 @@ import {
   MinLength,
   MaxLength,
   Min,
-  IsIn,
+  IsEnum,
 } from 'class-validator';
+import { Condition } from '../condition.enum.js';
 
-// Valid condition values — enforced at the DTO level so bad data never reaches the DB
-const VALID_CONDITIONS = ['new', 'like_new', 'good', 'fair', 'poor'] as const;
+// Re-export so consumers (e.g. tests) can reference the enum via the DTO module
+export { Condition };
 
 export class CreateListingDto {
   @IsString()
@@ -32,10 +33,11 @@ export class CreateListingDto {
   @MaxLength(50)
   brand?: string;
 
-  @IsIn(VALID_CONDITIONS, {
-    message: `Condition must be one of: ${VALID_CONDITIONS.join(', ')}`,
+  // @IsEnum validates against the Condition enum; any unknown value returns 400
+  @IsEnum(Condition, {
+    message: `condition must be one of: ${Object.values(Condition).join(', ')}`,
   })
-  condition: string;
+  condition: Condition;
 
   @IsOptional()
   @IsString()

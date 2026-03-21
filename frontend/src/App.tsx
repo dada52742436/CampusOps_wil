@@ -9,6 +9,8 @@ import { ListingDetailPage } from './pages/ListingDetailPage';
 import { CreateListingPage } from './pages/CreateListingPage';
 import { MyListingsPage } from './pages/MyListingsPage';
 import { EditListingPage } from './pages/EditListingPage';
+import { MyBookingsPage } from './pages/MyBookingsPage';
+import { ListingBookingsPage } from './pages/ListingBookingsPage';
 
 function App() {
   return (
@@ -60,6 +62,26 @@ function App() {
             element={
               <ProtectedRoute>
                 <EditListingPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* ── Bookings ────────────────────────────────────────── */}
+          {/* /bookings/mine must come before /listings/:id/bookings to avoid
+              any route resolution ambiguity with the nested listings param */}
+          <Route
+            path="/bookings/mine"
+            element={
+              <ProtectedRoute>
+                <MyBookingsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/listings/:id/bookings"
+            element={
+              <ProtectedRoute>
+                <ListingBookingsPage />
               </ProtectedRoute>
             }
           />

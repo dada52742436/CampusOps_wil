@@ -6,6 +6,7 @@ import {
   Delete,
   Body,
   Param,
+  Query,
   ParseIntPipe,
   UseGuards,
   Req,
@@ -17,6 +18,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
 import { ListingsService } from './listings.service.js';
 import { CreateListingDto } from './dto/create-listing.dto.js';
 import { UpdateListingDto } from './dto/update-listing.dto.js';
+import { GetListingsQueryDto } from './dto/get-listings-query.dto.js';
 import type { User } from '../../generated/prisma/client.js';
 
 // Extend Express Request to type req.user injected by JwtStrategy
@@ -30,10 +32,12 @@ export class ListingsController {
   constructor(private readonly listingsService: ListingsService) {}
 
   // ── GET /listings ─────────────────────────────────────────────────────────
-  // Public: anyone can browse all listings, no token required
+  // Public: anyone can browse all listings, no token required.
+  // Accepts optional query params: search, condition, brand, minPrice,
+  // maxPrice, page, limit — all validated by GetListingsQueryDto.
   @Get()
-  findAll() {
-    return this.listingsService.findAll();
+  findAll(@Query() query: GetListingsQueryDto) {
+    return this.listingsService.findAll(query);
   }
 
   // ── GET /listings/mine ────────────────────────────────────────────────────

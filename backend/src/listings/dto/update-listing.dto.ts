@@ -5,11 +5,9 @@ import {
   MinLength,
   MaxLength,
   Min,
-  IsIn,
+  IsEnum,
 } from 'class-validator';
-
-// Valid condition values — same as CreateListingDto
-const VALID_CONDITIONS = ['new', 'like_new', 'good', 'fair', 'poor'] as const;
+import { Condition } from '../condition.enum.js';
 
 // All fields are optional for PATCH — caller only sends what they want to change.
 // This is the standard partial-update pattern; we avoid PartialType from @nestjs/mapped-types
@@ -38,10 +36,10 @@ export class UpdateListingDto {
   brand?: string;
 
   @IsOptional()
-  @IsIn(VALID_CONDITIONS, {
-    message: `Condition must be one of: ${VALID_CONDITIONS.join(', ')}`,
+  @IsEnum(Condition, {
+    message: `condition must be one of: ${Object.values(Condition).join(', ')}`,
   })
-  condition?: string;
+  condition?: Condition;
 
   @IsOptional()
   @IsString()

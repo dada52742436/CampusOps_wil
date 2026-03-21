@@ -12,10 +12,17 @@ async function bootstrap() {
   });
 
   // 全局启用 DTO 校验管道
-  // whitelist: true  — 自动过滤掉 DTO 中未声明的多余字段，防止恶意注入
-  // forbidNonWhitelisted: true — 遇到多余字段时直接报错，而非静默忽略
+  // whitelist: true              — 过滤掉 DTO 中未声明的字段，防止恶意注入
+  // forbidNonWhitelisted: true   — 遇到多余字段直接 400，而非静默忽略
+  // transform: true              — 自动将请求数据转成 DTO 实例（而非纯对象）
+  // enableImplicitConversion     — query string "1" → number 1，无需 @Type(() => Number)
   app.useGlobalPipes(
-    new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }),
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+      transformOptions: { enableImplicitConversion: true },
+    }),
   );
 
   await app.listen(process.env.PORT ?? 3001);

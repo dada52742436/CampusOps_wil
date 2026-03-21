@@ -4,18 +4,12 @@ import {
   getListingById,
   updateListing,
   type UpdateListingPayload,
-  type ListingCondition,
 } from '../api/listings';
 import { useAuth } from '../context/AuthContext';
+import { CONDITIONS, type ListingCondition } from '../constants/conditions';
 
-// Condition options — must match backend VALID_CONDITIONS
-const CONDITIONS: { value: ListingCondition; label: string }[] = [
-  { value: 'new', label: 'New' },
-  { value: 'like_new', label: 'Like New' },
-  { value: 'good', label: 'Good' },
-  { value: 'fair', label: 'Fair' },
-  { value: 'poor', label: 'Poor' },
-];
+// CONDITIONS is imported from the shared constants file, which is the single
+// source of truth for valid condition values across the entire frontend.
 
 // Form state shape — all strings for controlled inputs, converts on submit
 interface FormState {

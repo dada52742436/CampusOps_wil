@@ -1,15 +1,10 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { createListing, type CreateListingPayload, type ListingCondition } from '../api/listings';
+import { createListing, type CreateListingPayload } from '../api/listings';
+import { CONDITIONS } from '../constants/conditions';
 
-// Condition options shown in the <select> — must match backend VALID_CONDITIONS
-const CONDITIONS: { value: ListingCondition; label: string }[] = [
-  { value: 'new', label: 'New' },
-  { value: 'like_new', label: 'Like New' },
-  { value: 'good', label: 'Good' },
-  { value: 'fair', label: 'Fair' },
-  { value: 'poor', label: 'Poor' },
-];
+// CONDITIONS is the shared source of truth for valid condition values.
+// The ListingCondition type flows in via CreateListingPayload below.
 
 export function CreateListingPage() {
   const navigate = useNavigate();

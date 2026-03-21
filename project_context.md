@@ -1,6 +1,6 @@
 ﻿# Project Context — Piano Listing Platform (Melbourne)
 
-> 用于在新对话中恢复上下文。当前状态：**Listing 模块 MVP 全部完成，所有测试通过。**
+> 用于在新对话中恢复上下文。当前状态：**Phase 2 Booking 模块完成 — schema、service、controller、前端页面全部就绪。**
 
 ---
 
@@ -29,8 +29,8 @@ x:\my-project150326\
 │   ├── .env                    ← DATABASE_URL, JWT_SECRET, JWT_EXPIRES_IN
 │   ├── .env.example
 │   ├── prisma\
-│   │   ├── schema.prisma       ← User + Listing 模型
-│   │   └── migrations\         ← 含 init + add_listing_model 两次迁移
+│   │   ├── schema.prisma       ← User + Listing 模型，含 Condition enum
+│   │   └── migrations\         ← init + add_listing_model + add_condition_enum
 │   ├── generated\
 │   │   └── prisma\
 │   │       └── package.json    ← {"type":"module"}（关键！）
@@ -52,13 +52,22 @@ x:\my-project150326\
 │       │   ├── auth.module.ts
 │       │   ├── jwt.strategy.ts
 │       │   └── jwt-auth.guard.ts
-│       ├── listings\           ← 新增
+│       ├── listings\
+│       │   ├── condition.enum.ts      ← Phase 1 新增：Condition TypeScript enum
 │       │   ├── dto\
-│       │   │   ├── create-listing.dto.ts
-│       │   │   └── update-listing.dto.ts
+│       │   │   ├── create-listing.dto.ts   ← @IsEnum(Condition)
+│       │   │   └── update-listing.dto.ts   ← @IsEnum(Condition)
 │       │   ├── listings.service.ts
 │       │   ├── listings.controller.ts
 │       │   └── listings.module.ts
+│       ├── bookings\                       ← Phase 2 新增
+│       │   ├── booking-status.enum.ts      ← BookingStatus TypeScript enum
+│       │   ├── dto\
+│       │   │   ├── create-booking.dto.ts
+│       │   │   └── update-booking-status.dto.ts
+│       │   ├── bookings.service.ts
+│       │   ├── bookings.controller.ts
+│       │   └── bookings.module.ts
 │       └── protected\
 │           └── protected.controller.ts
 └── frontend\
@@ -67,22 +76,27 @@ x:\my-project150326\
     └── src\
         ├── main.tsx
         ├── App.tsx             ← 所有路由（含 listings 路由）
+        ├── constants\
+        │   └── conditions.ts  ← Phase 1 新增：CONDITIONS 数组 + CONDITION_LABELS map
         ├── api\
         │   ├── auth.ts         ← axios 实例 + 拦截器 + auth API
-        │   └── listings.ts     ← 新增：listings CRUD API
+        │   ├── listings.ts     ← Phase 1：401 response interceptor，ListingCondition 从 constants 导入
+        │   └── bookings.ts    ← Phase 2 新增：createBooking / getMyBookings / getListingBookings / updateBookingStatus
         ├── context\
         │   └── AuthContext.tsx ← 全局 auth 状态 + localStorage
         ├── components\
         │   └── ProtectedRoute.tsx
         └── pages\
-            ├── LoginPage.tsx       ← 登录后跳 /listings
-            ├── RegisterPage.tsx    ← 注册后跳 /listings
-            ├── DashboardPage.tsx   ← 含 Browse Listings 按钮
-            ├── ListingsPage.tsx    ← 新增：公开列表页
-            ├── ListingDetailPage.tsx  ← 新增：详情页（本人显示 Edit/Delete）
-            ├── CreateListingPage.tsx  ← 新增：发布页（受保护）
-            ├── MyListingsPage.tsx     ← 新增：我的发布页（受保护）
-            └── EditListingPage.tsx    ← 新增：编辑页（受保护）
+            ├── LoginPage.tsx
+            ├── RegisterPage.tsx
+            ├── DashboardPage.tsx
+            ├── ListingsPage.tsx          ← Phase 1：CONDITION_LABELS 显示
+            ├── ListingDetailPage.tsx     ← Phase 1：CONDITION_LABELS 显示
+            ├── CreateListingPage.tsx     ← Phase 1：CONDITIONS 从 constants 导入
+            ├── MyListingsPage.tsx        ← Phase 1：CONDITION_LABELS 显示；Phase 2：Bookings 按钮
+            ├── EditListingPage.tsx       ← Phase 1：CONDITIONS 从 constants 导入
+            ├── MyBookingsPage.tsx        ← Phase 2 新增：买家已提交的预约列表（可取消 pending）
+            └── ListingBookingsPage.tsx  ← Phase 2 新增：卖家查看某 listing 的所有预约（可接受/拒绝）
 ```
 
 ---
@@ -174,6 +188,14 @@ expiresIn: process.env.JWT_EXPIRES_IN as `${number}${'s'|'m'|'h'|'d'}`,
 ## 数据库 Schema
 
 ```prisma
+enum Condition {
+  new
+  like_new
+  good
+  fair
+  poor
+}
+
 model User {
   id        Int       @id @default(autoincrement())
   email     String    @unique
@@ -182,22 +204,46 @@ model User {
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   listings  Listing[]
+  bookings  Booking[] @relation("BookingBuyer")   // Phase 2
   @@map("users")
 }
 
 model Listing {
-  id          Int      @id @default(autoincrement())
+  id          Int       @id @default(autoincrement())
   title       String
   description String
   price       Float
   brand       String?
-  condition   String   // "new" | "like_new" | "good" | "fair" | "poor"
+  condition   Condition
   location    String?
   ownerId     Int
-  owner       User     @relation(fields: [ownerId], references: [id])
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  owner       User      @relation(fields: [ownerId], references: [id])
+  bookings    Booking[]                            // Phase 2
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
   @@map("listings")
+}
+
+// Phase 2 — 新增
+enum BookingStatus {
+  pending
+  accepted
+  rejected
+  cancelled
+}
+
+model Booking {
+  id        Int           @id @default(autoincrement())
+  listingId Int
+  listing   Listing       @relation(fields: [listingId], references: [id])
+  buyerId   Int
+  buyer     User          @relation("BookingBuyer", fields: [buyerId], references: [id])
+  status    BookingStatus @default(pending)
+  message   String?
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  @@unique([listingId, buyerId])
+  @@map("bookings")
 }
 ```
 
@@ -225,11 +271,16 @@ model Listing {
 | PATCH  | /listings/:id   | 编辑（仅本人，否则 403） | JWT |
 | DELETE | /listings/:id   | 删除（仅本人，否则 403） | JWT |
 
-**注意**: `/listings/mine` 路由在 Controller 中必须声明在 `/:id` 之前，否则 NestJS 会把 "mine" 当成 id 解析。
+### Bookings（Phase 2）
+| 方法 | 路径 | 描述 | 认证 | 权限 |
+|------|------|------|------|------|
+| POST  | /listings/:listingId/bookings | 提交预约 | JWT | 买家（非 listing 所有者）|
+| GET   | /bookings/mine                | 我的所有预约 | JWT | 本人 |
+| GET   | /listings/:listingId/bookings | 某 listing 的所有预约 | JWT | 卖家（listing 所有者）|
+| PATCH | /bookings/:id/status          | 更新预约状态 | JWT | 卖家（accepted/rejected）或买家（cancelled）|
 
-**权限实现**:
-- Controller：从 `req.user.id`（JWT 注入）获取 requesterId，不从 body 读取
-- Service：`update()` / `remove()` 先 findOne（404），再比对 `ownerId !== requesterId`（403）
+**状态机**: `pending` → { 卖家: `accepted` / `rejected`；买家: `cancelled` }。只有 pending 状态可被修改。  
+**约束**: 同一 (listingId, buyerId) 只能有一条预约（DB `@@unique`）。
 
 ---
 
@@ -246,6 +297,8 @@ model Listing {
 | `/login` | `LoginPage` | 公开 |
 | `/register` | `RegisterPage` | 公开 |
 | `/dashboard` | `DashboardPage` | ProtectedRoute |
+| `/bookings/mine` | `MyBookingsPage` | ProtectedRoute |
+| `/listings/:id/bookings` | `ListingBookingsPage` | ProtectedRoute |
 
 **登录/注册成功后跳转**: `/listings`（非 `/dashboard`）
 
@@ -281,6 +334,49 @@ npm run dev
 - 搜索 / 筛选（价格、品牌、成色）
 - 图片上传
 - 买家联系卖家（消息系统）
+- Listing 状态字段（active / sold / archived）
+- Tailwind CSS 迁移
+
+---
+
+## Phase 2 变更记录（2026-03-21）
+
+### 后端
+- **`prisma/schema.prisma`**：新增 `BookingStatus` enum（pending/accepted/rejected/cancelled）、`Booking` 模型（含 `@@unique([listingId, buyerId])`）、User 和 Listing 反向关联
+- **迁移**：新增 `20260321060510_add_booking_model` migration
+- **`src/bookings/booking-status.enum.ts`**（新文件）：TypeScript enum，供 DTO/Service 使用（不从 generated client 导入）
+- **`src/bookings/dto/create-booking.dto.ts`**（新文件）：`message?: string`，`@MaxLength(500)`
+- **`src/bookings/dto/update-booking-status.dto.ts`**（新文件）：`@IsEnum(BookingStatus)`
+- **`src/bookings/bookings.service.ts`**（新文件）：create（400/404/409）、findByBuyer、findByListing（403）、updateStatus（状态机 + 所有权校验）
+- **`src/bookings/bookings.controller.ts`**（新文件）：4 条路由，`@Controller()` 无前缀以支持两种 URL 模式
+- **`src/bookings/bookings.module.ts`**（新文件）：注册 Service 和 Controller
+- **`src/app.module.ts`**：注册 `BookingsModule`
+
+### 前端
+- **`src/api/bookings.ts`**（新文件）：`BookingStatus` 类型、`Booking` interface、4 个 API 函数 + 401 interceptor
+- **`src/pages/MyBookingsPage.tsx`**（新文件）：买家的预约列表，按状态着色，pending 可取消
+- **`src/pages/ListingBookingsPage.tsx`**（新文件）：卖家查看某 listing 预约，可接受/拒绝
+- **`src/App.tsx`**：新增 `/bookings/mine`、`/listings/:id/bookings` 两条受保护路由
+- **`src/pages/ListingDetailPage.tsx`**：listing 详情页下方新增预约区块（卖家→管理链接；买家→预约表单；未登录→登录提示）
+- **`src/pages/MyListingsPage.tsx`**：每行新增"Bookings"按钮，跳转到该 listing 的预约管理页
+- **`src/pages/ListingsPage.tsx`**：头部新增"My Bookings"链接（仅登录用户可见）
+
+---
+
+## Phase 1 变更记录（2026-03-21）
+
+### 后端
+- **`prisma/schema.prisma`**：新增 `enum Condition { new like_new good fair poor }`，`Listing.condition` 从 `String` 改为 `Condition`
+- **迁移**：新增 `20260321054941_add_condition_enum` migration
+- **`src/listings/condition.enum.ts`**（新文件）：TypeScript enum，与 Prisma enum 保持同步，供 DTO 使用
+- **`src/listings/dto/create-listing.dto.ts`**：`@IsIn` → `@IsEnum(Condition)`，去除 `VALID_CONDITIONS` 常量
+- **`src/listings/dto/update-listing.dto.ts`**：同上
+
+### 前端
+- **`src/constants/conditions.ts`**（新文件）：`CONDITIONS` 数组（含 value/label）+ `CONDITION_LABELS` map + `ListingCondition` 类型 —— 整个前端的单一数据源
+- **`src/api/listings.ts`**：`ListingCondition` 从 `constants/conditions` 导入（不再在此处定义）；新增 **401 response interceptor**：token 过期时自动清除 localStorage 并跳转 `/login`
+- **`CreateListingPage.tsx` / `EditListingPage.tsx`**：`CONDITIONS` 从 `constants/conditions` 导入，去除本地重复定义
+- **`ListingsPage.tsx` / `ListingDetailPage.tsx` / `MyListingsPage.tsx`**：`condition.replace('_', ' ')` → `CONDITION_LABELS[listing.condition]`，显示规范化标签（如 "Like New"）
 
 ---
 

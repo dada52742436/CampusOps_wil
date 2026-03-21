@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { getMyListings, deleteListing, type Listing } from '../api/listings';
+import { CONDITION_LABELS } from '../constants/conditions';
 
 export function MyListingsPage() {
   const navigate = useNavigate();
@@ -58,7 +59,7 @@ export function MyListingsPage() {
           <div key={listing.id} style={styles.row}>
             {/* Left: info */}
             <div style={styles.rowInfo}>
-              <span style={styles.condition}>{listing.condition.replace('_', ' ')}</span>
+              <span style={styles.condition}>{CONDITION_LABELS[listing.condition] ?? listing.condition}</span>
               <Link to={`/listings/${listing.id}`} style={styles.rowTitle}>
                 {listing.title}
               </Link>
@@ -72,6 +73,12 @@ export function MyListingsPage() {
 
             {/* Right: actions */}
             <div style={styles.rowActions}>
+              <button
+                style={styles.btnBookings}
+                onClick={() => navigate(`/listings/${listing.id}/bookings`)}
+              >
+                Bookings
+              </button>
               <button
                 style={styles.btnEdit}
                 onClick={() => navigate(`/listings/${listing.id}/edit`)}
@@ -119,6 +126,10 @@ const styles: Record<string, React.CSSProperties> = {
   rowTitle: { fontWeight: 600, fontSize: 15, color: '#111827', textDecoration: 'none' },
   rowMeta: { fontSize: 13, color: '#6b7280' },
   rowActions: { display: 'flex', gap: 8, flexShrink: 0 },
+  btnBookings: {
+    padding: '6px 14px', background: '#eff6ff', color: '#1d4ed8',
+    border: '1px solid #bfdbfe', borderRadius: 6, fontSize: 13, cursor: 'pointer',
+  },
   btnEdit: {
     padding: '6px 14px', background: '#f3f4f6', color: '#374151',
     border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13, cursor: 'pointer',

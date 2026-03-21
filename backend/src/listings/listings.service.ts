@@ -7,31 +7,99 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import type { Listing } from '../../generated/prisma/client.js';
 import type { CreateListingDto } from './dto/create-listing.dto.js';
 import type { UpdateListingDto } from './dto/update-listing.dto.js';
+import type { GetListingsQueryDto } from './dto/get-listings-query.dto.js';
+import { Condition } from './condition.enum.js';
 
-// Shape of a listing returned to the client — includes owner's public info
+// Shape of a listing returned to the client — includes owner's public info and images
 export interface ListingWithOwner extends Listing {
   owner: {
     id: number;
     username: string;
   };
+  images: { id: number; url: string; order: number }[];
+}
+
+// Paginated response envelope returned by findAll()
+export interface PaginatedListings {
+  data: ListingWithOwner[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
 }
 
 @Injectable()
 export class ListingsService {
   constructor(private readonly prismaService: PrismaService) {}
 
-  // ── GET ALL ───────────────────────────────────────────────────────────────
-  // Returns all listings, newest first, with the owner's public profile attached.
-  // This is a public endpoint — no auth required.
-  async findAll(): Promise<ListingWithOwner[]> {
-    return this.prismaService.prisma.listing.findMany({
-      orderBy: { createdAt: 'desc' },
-      include: {
-        owner: {
-          select: { id: true, username: true },
-        },
-      },
-    });
+  // ── GET ALL (with search / filter / pagination) ───────────────────────────
+  // Public endpoint. Accepts optional query params:
+  //   search    — full-text on title + description (case-insensitive OR)
+  //   condition — exact enum match
+  //   brand     — partial, case-insensitive
+  //   minPrice / maxPrice — inclusive price range
+  //   page / limit — 1-based pagination (defaults: page=1, limit=12)
+  async findAll(query: GetListingsQueryDto): Promise<PaginatedListings> {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 12;
+
+    // Build the where clause dynamically — only include a filter when the
+    // corresponding query param was actually provided.
+    const where: {
+      OR?: {
+        title?: { contains: string; mode: 'insensitive' };
+        description?: { contains: string; mode: 'insensitive' };
+      }[];
+      condition?: Condition;
+      brand?: { contains: string; mode: 'insensitive' };
+      price?: { gte?: number; lte?: number };
+    } = {};
+
+    if (query.search) {
+      where.OR = [
+        { title: { contains: query.search, mode: 'insensitive' } },
+        { description: { contains: query.search, mode: 'insensitive' } },
+      ];
+    }
+
+    if (query.condition) {
+      where.condition = query.condition;
+    }
+
+    if (query.brand) {
+      where.brand = { contains: query.brand, mode: 'insensitive' };
+    }
+
+    if (query.minPrice !== undefined || query.maxPrice !== undefined) {
+      where.price = {};
+      if (query.minPrice !== undefined) where.price.gte = query.minPrice;
+      if (query.maxPrice !== undefined) where.price.lte = query.maxPrice;
+    }
+
+    const includeOwner = {
+      owner: { select: { id: true, username: true } },
+      images: { orderBy: { order: 'asc' as const } },
+    };
+
+    // Run data query and count in parallel — both use the same where clause
+    const [data, total] = await Promise.all([
+      this.prismaService.prisma.listing.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+        include: includeOwner,
+      }),
+      this.prismaService.prisma.listing.count({ where }),
+    ]);
+
+    return {
+      data: data as ListingWithOwner[],
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
   }
 
   // ── GET MINE ──────────────────────────────────────────────────────────────
@@ -41,9 +109,8 @@ export class ListingsService {
       where: { ownerId },
       orderBy: { createdAt: 'desc' },
       include: {
-        owner: {
-          select: { id: true, username: true },
-        },
+        owner: { select: { id: true, username: true } },
+        images: { orderBy: { order: 'asc' } },
       },
     });
   }
@@ -55,9 +122,8 @@ export class ListingsService {
     const listing = await this.prismaService.prisma.listing.findUnique({
       where: { id },
       include: {
-        owner: {
-          select: { id: true, username: true },
-        },
+        owner: { select: { id: true, username: true } },
+        images: { orderBy: { order: 'asc' } },
       },
     });
 
@@ -83,9 +149,8 @@ export class ListingsService {
         ownerId,
       },
       include: {
-        owner: {
-          select: { id: true, username: true },
-        },
+        owner: { select: { id: true, username: true } },
+        images: { orderBy: { order: 'asc' } },
       },
     });
   }
@@ -118,9 +183,8 @@ export class ListingsService {
         ...(dto.location !== undefined && { location: dto.location }),
       },
       include: {
-        owner: {
-          select: { id: true, username: true },
-        },
+        owner: { select: { id: true, username: true } },
+        images: { orderBy: { order: 'asc' } },
       },
     });
   }

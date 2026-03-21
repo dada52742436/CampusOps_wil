@@ -11,6 +11,28 @@ datasource db {
   provider = "postgresql"
 }
 
+// ── Enums ────────────────────────────────────────────────────────────────────
+// Condition describes the physical state of a listed piano.
+// Must stay in sync with backend/src/listings/condition.enum.ts.
+enum Condition {
+  new
+  like_new
+  good
+  fair
+  poor
+}
+
+// ── BookingStatus ─────────────────────────────────────────────────────────────
+// Lifecycle of a booking request.
+// Seller controls: pending → accepted | rejected
+// Buyer controls:  pending → cancelled
+enum BookingStatus {
+  pending    // submitted by buyer, awaiting seller response
+  accepted   // seller confirmed the viewing/purchase
+  rejected   // seller declined
+  cancelled  // buyer withdrew the request
+}
+
 // ── User ──────────────────────────────────────────────────────────────────────
 model User {
   id        Int       @id @default(autoincrement())
@@ -23,6 +45,9 @@ model User {
   // One user can own many listings (one-to-many)
   listings  Listing[]
 
+  // Bookings this user has made as a buyer
+  bookings  Booking[] @relation("BookingBuyer")
+
   @@map("users")
 }
 
@@ -34,7 +59,7 @@ model Listing {
   description String
   price       Float
   brand       String?  // optional: piano brand (e.g. "Yamaha", "Kawai")
-  condition   String   // one of: "new" | "like_new" | "good" | "fair" | "poor"
+  condition   Condition // enforced at DB level via the Condition enum
   location    String?  // optional: city or region
 
   // Foreign key — the user who created this listing
@@ -44,5 +69,53 @@ model Listing {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  // All booking requests made against this listing
+  bookings    Booking[]
+
+  // Images attached to this listing
+  images      ListingImage[]
+
   @@map("listings")
+}
+
+// ── Booking ───────────────────────────────────────────────────────────────────
+// Represents a buyer's request to view or purchase a listed piano.
+// A buyer may only have one active booking per listing (@@unique enforced at DB).
+model Booking {
+  id        Int           @id @default(autoincrement())
+
+  // The listing being requested
+  listingId Int
+  listing   Listing       @relation(fields: [listingId], references: [id])
+
+  // The user making the request (buyer).
+  // Named relation "BookingBuyer" disambiguates from the Listing.owner → User path.
+  buyerId   Int
+  buyer     User          @relation("BookingBuyer", fields: [buyerId], references: [id])
+
+  status    BookingStatus @default(pending)
+
+  // Optional message from buyer to seller (e.g. preferred viewing time)
+  message   String?
+
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  // One buyer can only have one booking per listing at any time
+  @@unique([listingId, buyerId])
+  @@map("bookings")
+}
+
+// ── ListingImage ──────────────────────────────────────────────────────────────
+// Stores metadata for images uploaded against a listing.
+// The file itself lives on disk under uploads/; url is the public-accessible path.
+model ListingImage {
+  id        Int      @id @default(autoincrement())
+  listingId Int
+  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  url       String   // public path e.g. "/uploads/listing-3-1234567890.jpg"
+  order     Int      @default(0) // display order, 0 = first/cover image
+  createdAt DateTime @default(now())
+
+  @@map("listing_images")
 }
