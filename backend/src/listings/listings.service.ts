@@ -9,6 +9,7 @@ import type { CreateListingDto } from './dto/create-listing.dto.js';
 import type { UpdateListingDto } from './dto/update-listing.dto.js';
 import type { GetListingsQueryDto } from './dto/get-listings-query.dto.js';
 import { Condition } from './condition.enum.js';
+import { ListingStatus } from './listing-status.enum.js';
 
 // Shape of a listing returned to the client — includes owner's public info and images
 export interface ListingWithOwner extends Listing {
@@ -54,6 +55,9 @@ export class ListingsService {
       brand?: { contains: string; mode: 'insensitive' };
       price?: { gte?: number; lte?: number };
     } = {};
+
+    // Public browse only shows listings that are currently available.
+    where.status = ListingStatus.active;
 
     if (query.search) {
       where.OR = [

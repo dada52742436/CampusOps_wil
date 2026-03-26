@@ -1,5 +1,6 @@
 import axios, { type AxiosError } from 'axios';
 import { type ListingCondition } from '../constants/conditions';
+import { type ListingStatus } from '../constants/listingStatus';
 
 // Re-export so pages can import the type directly from the api module if needed
 export type { ListingCondition };
@@ -54,6 +55,7 @@ export interface Listing {
   price: number;
   brand: string | null;
   condition: string;
+  status: ListingStatus;
   location: string | null;
   ownerId: number;
   owner: {
@@ -82,6 +84,7 @@ export interface UpdateListingPayload {
   price?: number;
   brand?: string;
   condition?: ListingCondition;
+  status?: ListingStatus;
   location?: string;
 }
 

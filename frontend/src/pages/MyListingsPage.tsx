@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { getMyListings, deleteListing, type Listing } from '../api/listings';
 import { CONDITION_LABELS } from '../constants/conditions';
+import { LISTING_STATUS_LABELS } from '../constants/listingStatus';
 
 export function MyListingsPage() {
   const navigate = useNavigate();
@@ -60,6 +61,18 @@ export function MyListingsPage() {
             {/* Left: info */}
             <div style={styles.rowInfo}>
               <span style={styles.condition}>{CONDITION_LABELS[listing.condition] ?? listing.condition}</span>
+              <span
+                style={{
+                  ...styles.status,
+                  ...(listing.status === 'active'
+                    ? styles.statusActive
+                    : listing.status === 'sold'
+                      ? styles.statusSold
+                      : styles.statusArchived),
+                }}
+              >
+                {LISTING_STATUS_LABELS[listing.status]}
+              </span>
               <Link to={`/listings/${listing.id}`} style={styles.rowTitle}>
                 {listing.title}
               </Link>
@@ -123,6 +136,13 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 12, padding: '2px 8px', borderRadius: 4, flexShrink: 0,
     background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0',
   },
+  status: {
+    fontSize: 12, padding: '2px 8px', borderRadius: 4, flexShrink: 0,
+    border: '1px solid transparent',
+  },
+  statusActive: { background: '#eff6ff', color: '#1d4ed8', borderColor: '#bfdbfe' },
+  statusSold: { background: '#fef2f2', color: '#b91c1c', borderColor: '#fecaca' },
+  statusArchived: { background: '#f3f4f6', color: '#4b5563', borderColor: '#d1d5db' },
   rowTitle: { fontWeight: 600, fontSize: 15, color: '#111827', textDecoration: 'none' },
   rowMeta: { fontSize: 13, color: '#6b7280' },
   rowActions: { display: 'flex', gap: 8, flexShrink: 0 },

@@ -644,6 +644,56 @@ describe('AuthController (e2e)', () => {
       });
   });
 
+  it('GET /listings should exclude sold and archived listings from the public result', async () => {
+    const ownerEmail = buildUniqueEmail('e2e-status-filter-owner');
+    const ownerToken = await registerUserAndGetToken({
+      email: ownerEmail,
+      username: 'status-ownr',
+    });
+
+    const activeListing = await createListing({
+      accessToken: ownerToken,
+      title: 'Visible Active Listing',
+      description: 'This active listing should remain visible in public results.',
+      brand: 'StatusFilterBrand',
+    });
+    const soldListing = await createListing({
+      accessToken: ownerToken,
+      title: 'Hidden Sold Listing',
+      description: 'This sold listing should not appear in public results.',
+      brand: 'StatusFilterBrand',
+    });
+    const archivedListing = await createListing({
+      accessToken: ownerToken,
+      title: 'Hidden Archived Listing',
+      description: 'This archived listing should not appear in public results.',
+      brand: 'StatusFilterBrand',
+    });
+
+    await request(app.getHttpServer())
+      .patch(`/listings/${soldListing.body.id}`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ status: 'sold' })
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .patch(`/listings/${archivedListing.body.id}`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ status: 'archived' })
+      .expect(200);
+
+    return request(app.getHttpServer())
+      .get('/listings')
+      .query({ brand: 'StatusFilterBrand' })
+      .expect(200)
+      .expect((response) => {
+        expect(response.body.total).toBe(1);
+        expect(response.body.data).toHaveLength(1);
+        expect(response.body.data[0].id).toBe(activeListing.body.id);
+        expect(response.body.data[0].status).toBe('active');
+      });
+  });
+
   it('POST /listings/:listingId/bookings should create a booking for a buyer', async () => {
     const sellerEmail = buildUniqueEmail('e2e-booking-seller');
     const buyerEmail = buildUniqueEmail('e2e-booking-buyer');
@@ -1103,6 +1153,38 @@ describe('AuthController (e2e)', () => {
     }).then((response) => {
       expect(response.status).toBe(400);
     });
+  });
+
+  it('POST /listings/:listingId/bookings should return 400 for a sold listing', async () => {
+    const sellerEmail = buildUniqueEmail('e2e-sold-booking-seller');
+    const buyerEmail = buildUniqueEmail('e2e-sold-booking-buyer');
+
+    const sellerToken = await registerUserAndGetToken({
+      email: sellerEmail,
+      username: 'sold-seller',
+    });
+    const buyerToken = await registerUserAndGetToken({
+      email: buyerEmail,
+      username: 'sold-buyer',
+    });
+
+    const listing = await createListing({
+      accessToken: sellerToken,
+      title: 'Sold Booking Target',
+      description: 'Listing used to verify sold listings no longer accept bookings.',
+    });
+
+    await request(app.getHttpServer())
+      .patch(`/listings/${listing.body.id}`)
+      .set('Authorization', `Bearer ${sellerToken}`)
+      .send({ status: 'sold' })
+      .expect(200);
+
+    return request(app.getHttpServer())
+      .post(`/listings/${listing.body.id}/bookings`)
+      .set('Authorization', `Bearer ${buyerToken}`)
+      .send({ message: 'Trying to book a sold listing.' })
+      .expect(400);
   });
 
   it('POST /listings/:listingId/images should upload an image for the owner', async () => {

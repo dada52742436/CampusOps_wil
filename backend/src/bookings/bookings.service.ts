@@ -8,6 +8,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service.js';
 import { BookingStatus } from './booking-status.enum.js';
 import type { CreateBookingDto } from './dto/create-booking.dto.js';
+import { ListingStatus } from '../listings/listing-status.enum.js';
 
 @Injectable()
 export class BookingsService {
@@ -33,7 +34,12 @@ export class BookingsService {
       throw new BadRequestException('You cannot book your own listing');
     }
 
-    // 3. Enforce one booking per buyer per listing (mirrors the DB @@unique)
+    // 3. Only active listings can receive new bookings
+    if (listing.status !== ListingStatus.active) {
+      throw new BadRequestException('Only active listings can receive bookings');
+    }
+
+    // 4. Enforce one booking per buyer per listing (mirrors the DB @@unique)
     const existing = await this.prismaService.prisma.booking.findUnique({
       where: { listingId_buyerId: { listingId, buyerId } },
     });

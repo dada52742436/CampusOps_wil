@@ -7,6 +7,7 @@ import {
 } from '../api/listings';
 import { useAuth } from '../context/AuthContext';
 import { CONDITIONS, type ListingCondition } from '../constants/conditions';
+import { LISTING_STATUSES, LISTING_STATUS_LABELS, type ListingStatus } from '../constants/listingStatus';
 import { Field } from '../components/ui/Field';
 import { sharedInputStyle } from '../styles/shared';
 
@@ -20,6 +21,7 @@ interface FormState {
   price: string; // string so the <input type="number"> is controlled correctly
   brand: string;
   condition: ListingCondition;
+  status: ListingStatus;
   location: string;
 }
 
@@ -50,6 +52,7 @@ export function EditListingPage() {
           price: String(listing.price),
           brand: listing.brand ?? '',
           condition: listing.condition as ListingCondition,
+          status: listing.status,
           location: listing.location ?? '',
         });
       })
@@ -76,6 +79,7 @@ export function EditListingPage() {
         description: form.description,
         price: Number(form.price),
         condition: form.condition,
+        status: form.status,
         // Send null-equivalent as undefined so backend does a proper partial update
         ...(form.brand.trim() ? { brand: form.brand.trim() } : { brand: undefined }),
         ...(form.location.trim() ? { location: form.location.trim() } : { location: undefined }),
@@ -148,6 +152,22 @@ export function EditListingPage() {
             {CONDITIONS.map((c) => (
               <option key={c.value} value={c.value}>
                 {c.label}
+              </option>
+            ))}
+          </select>
+        </Field>
+
+        <Field label="Status *">
+          <select
+            style={sharedInputStyle}
+            name="status"
+            value={form.status}
+            onChange={handleChange}
+            required
+          >
+            {LISTING_STATUSES.map((status) => (
+              <option key={status.value} value={status.value}>
+                {LISTING_STATUS_LABELS[status.value]}
               </option>
             ))}
           </select>

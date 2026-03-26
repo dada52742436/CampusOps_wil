@@ -97,6 +97,17 @@ describe('ListingsService', () => {
       expect(findManyCall.where.OR).toBeDefined();
       expect(findManyCall.where.OR).toHaveLength(2);
     });
+
+    it('only returns active listings in the public browse query', async () => {
+      mockPrismaService.prisma.listing.findMany.mockResolvedValue([]);
+      mockPrismaService.prisma.listing.count.mockResolvedValue(0);
+
+      await service.findAll({});
+
+      const findManyCall = mockPrismaService.prisma.listing.findMany.mock
+        .calls[0][0] as { where: { status?: string } };
+      expect(findManyCall.where.status).toBe('active');
+    });
   });
 
   // ── findOne ──────────────────────────────────────────────────────────────────

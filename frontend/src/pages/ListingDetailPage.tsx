@@ -10,6 +10,7 @@ import {
 import { createBooking } from '../api/bookings';
 import { useAuth } from '../context/AuthContext';
 import { CONDITION_LABELS } from '../constants/conditions';
+import { LISTING_STATUS_LABELS } from '../constants/listingStatus';
 
 export function ListingDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -42,6 +43,7 @@ export function ListingDetailPage() {
 
   // True only when the current logged-in user is the owner of this listing
   const isOwner = user !== null && listing !== null && user.id === listing.ownerId;
+  const canReceiveBookings = listing?.status === 'active';
 
   // Buyer submits a booking request for this listing
   async function handleBooking(e: React.FormEvent) {
@@ -123,6 +125,18 @@ export function ListingDetailPage() {
           <div>
             <div style={styles.badges}>
               <span style={styles.condition}>{CONDITION_LABELS[listing.condition] ?? listing.condition}</span>
+              <span
+                style={{
+                  ...styles.status,
+                  ...(listing.status === 'active'
+                    ? styles.statusActive
+                    : listing.status === 'sold'
+                      ? styles.statusSold
+                      : styles.statusArchived),
+                }}
+              >
+                {LISTING_STATUS_LABELS[listing.status]}
+              </span>
               {listing.brand && <span style={styles.brand}>{listing.brand}</span>}
             </div>
             <h2 style={styles.title}>{listing.title}</h2>
@@ -234,7 +248,11 @@ export function ListingDetailPage() {
         // Logged-in buyer: inline booking request form
         <div style={styles.bookingCard}>
           <h4 style={styles.sectionLabel}>Make a Booking Request</h4>
-          {bookingSuccess ? (
+          {!canReceiveBookings ? (
+            <p style={styles.bookingMuted}>
+              This listing is no longer accepting booking requests.
+            </p>
+          ) : bookingSuccess ? (
             <p style={styles.bookingSuccess}>
               ✓ Request sent!{' '}
               <Link to="/bookings/mine" style={{ color: '#15803d' }}>View My Bookings</Link>.
@@ -302,6 +320,13 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 12, padding: '2px 8px', borderRadius: 4,
     background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe',
   },
+  status: {
+    fontSize: 12, padding: '2px 8px', borderRadius: 4,
+    border: '1px solid transparent',
+  },
+  statusActive: { background: '#eff6ff', color: '#1d4ed8', borderColor: '#bfdbfe' },
+  statusSold: { background: '#fef2f2', color: '#b91c1c', borderColor: '#fecaca' },
+  statusArchived: { background: '#f3f4f6', color: '#4b5563', borderColor: '#d1d5db' },
   title: { margin: '0 0 8px', fontSize: 22, fontWeight: 700 },
   price: { margin: 0, fontSize: 24, fontWeight: 700, color: '#2563eb' },
   ownerActions: { display: 'flex', gap: 10, flexShrink: 0 },
@@ -326,6 +351,7 @@ const styles: Record<string, React.CSSProperties> = {
     marginTop: 24, border: '1px solid #e5e7eb', borderRadius: 10,
     padding: 24, background: '#fff',
   },
+  bookingMuted: { margin: 0, color: '#6b7280', fontSize: 14, lineHeight: 1.6 },
   bookingSuccess: { margin: 0, color: '#15803d', fontSize: 14 },
   bookingError: { margin: '0 0 10px', color: '#dc2626', fontSize: 13 },
   bookingTextarea: {
