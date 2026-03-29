@@ -1,6 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getMyBookings, updateBookingStatus, type Booking, type BookingStatus } from '../api/bookings';
+import {
+  sharedPageHeadingStyle,
+  sharedPageHeaderStyle,
+  sharedPageStyle,
+  sharedPageSubheadingStyle,
+} from '../styles/shared';
 
 // Human-readable labels for each booking status value
 const STATUS_LABELS: Record<BookingStatus, string> = {
@@ -53,6 +59,9 @@ export function MyBookingsPage() {
         <div>
           <Link to="/listings" style={styles.back}>← All Listings</Link>
           <h2 style={styles.heading}>My Booking Requests</h2>
+          <p style={styles.subheading}>
+            Track every request you have sent and cancel any booking that is still pending.
+          </p>
         </div>
       </div>
 
@@ -132,10 +141,11 @@ export function MyBookingsPage() {
 
 // ── Inline styles ─────────────────────────────────────────────────────────────
 const styles: Record<string, React.CSSProperties> = {
-  page: { maxWidth: 760, margin: '40px auto', padding: '0 20px' },
-  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 24 },
+  page: sharedPageStyle,
+  header: sharedPageHeaderStyle,
   back: { display: 'block', color: '#2563eb', textDecoration: 'none', fontSize: 13, marginBottom: 6 },
-  heading: { margin: 0, fontSize: 22, fontWeight: 700 },
+  heading: sharedPageHeadingStyle,
+  subheading: sharedPageSubheadingStyle,
   info: { textAlign: 'center', color: '#6b7280', marginTop: 40 },
   error: { color: '#dc2626', marginTop: 12 },
   emptyBox: { textAlign: 'center', marginTop: 60 },

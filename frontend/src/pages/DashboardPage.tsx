@@ -2,6 +2,12 @@ import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { getProfile } from '../api/auth';
 import { useAuth } from '../context/AuthContext';
+import {
+  sharedPageHeadingStyle,
+  sharedPageHeaderStyle,
+  sharedPageStyle,
+  sharedPageSubheadingStyle,
+} from '../styles/shared';
 
 interface ProfileData {
   message: string;
@@ -34,18 +40,23 @@ export function DashboardPage() {
   }
 
   return (
-    <div style={styles.container}>
-      <div style={styles.card}>
-        <div style={styles.header}>
+    <div style={styles.page}>
+      <div style={styles.header}>
+        <div>
           <h2 style={styles.title}>Welcome back, {user?.username}</h2>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <Link to="/listings" style={styles.logoutBtn}>Browse Listings</Link>
-            <button style={styles.logoutBtn} onClick={handleLogout}>
-              Log Out
-            </button>
-          </div>
+          <p style={styles.subheading}>
+            Review your protected profile details and confirm your current login session is active.
+          </p>
         </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <Link to="/listings" style={styles.secondaryBtn}>Browse Listings</Link>
+          <button style={styles.logoutBtn} onClick={handleLogout}>
+            Log Out
+          </button>
+        </div>
+      </div>
 
+      <div style={styles.card}>
         <div style={styles.divider} />
 
         {error && <div style={styles.error}>{error}</div>}
@@ -82,11 +93,22 @@ export function DashboardPage() {
 }
 
 const styles: Record<string, React.CSSProperties> = {
-  container: { minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f0f2f5' },
-  card: { background: '#fff', padding: '40px', borderRadius: '8px', boxShadow: '0 2px 12px rgba(0,0,0,0.1)', width: '480px' },
-  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
-  title: { margin: 0, fontSize: '20px' },
-  logoutBtn: { padding: '6px 16px', background: '#fff', border: '1px solid #d9d9d9', borderRadius: '4px', cursor: 'pointer', fontSize: '14px' },
+  page: { ...sharedPageStyle, maxWidth: 760 },
+  card: { background: '#fff', padding: '32px', borderRadius: '10px', boxShadow: '0 2px 12px rgba(15, 23, 42, 0.08)' },
+  header: sharedPageHeaderStyle,
+  title: sharedPageHeadingStyle,
+  subheading: sharedPageSubheadingStyle,
+  secondaryBtn: {
+    padding: '8px 16px',
+    background: '#fff',
+    border: '1px solid #d1d5db',
+    borderRadius: '6px',
+    cursor: 'pointer',
+    fontSize: '14px',
+    textDecoration: 'none',
+    color: '#374151',
+  },
+  logoutBtn: { padding: '8px 16px', background: '#fff1f2', border: '1px solid #fecaca', borderRadius: '6px', cursor: 'pointer', fontSize: '14px', color: '#be123c' },
   divider: { height: '1px', background: '#f0f0f0', margin: '20px 0' },
   error: { background: '#fff1f0', border: '1px solid #ffa39e', color: '#cf1322', padding: '8px 12px', borderRadius: '4px', marginBottom: '16px', fontSize: '14px' },
   badge: { background: '#f6ffed', border: '1px solid #b7eb8f', color: '#389e0d', padding: '8px 12px', borderRadius: '4px', fontSize: '14px', marginBottom: '16px' },

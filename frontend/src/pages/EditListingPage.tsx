@@ -9,7 +9,13 @@ import { useAuth } from '../context/AuthContext';
 import { CONDITIONS, type ListingCondition } from '../constants/conditions';
 import { LISTING_STATUSES, LISTING_STATUS_LABELS, type ListingStatus } from '../constants/listingStatus';
 import { Field } from '../components/ui/Field';
-import { sharedInputStyle } from '../styles/shared';
+import {
+  sharedBackLinkStyle,
+  sharedFormPageStyle,
+  sharedInputStyle,
+  sharedPageHeadingStyle,
+  sharedPageSubheadingStyle,
+} from '../styles/shared';
 
 // CONDITIONS is imported from the shared constants file, which is the single
 // source of truth for valid condition values across the entire frontend.
@@ -103,8 +109,11 @@ export function EditListingPage() {
 
   return (
     <div style={styles.page}>
-      <Link to={`/listings/${id}`} style={styles.back}>�?Back to Listing</Link>
+      <Link to={`/listings/${id}`} style={styles.back}>Back to Listing</Link>
       <h2 style={styles.heading}>Edit Listing</h2>
+      <p style={styles.subheading}>
+        Update the listing details, visibility status, and booking availability for this piano.
+      </p>
 
       <form onSubmit={handleSubmit} style={styles.form}>
         {submitError && <p style={styles.error}>{submitError}</p>}
@@ -221,9 +230,10 @@ export function EditListingPage() {
 
 // ── Inline styles ─────────────────────────────────────────────────────
 const styles: Record<string, React.CSSProperties> = {
-  page: { maxWidth: 560, margin: '40px auto', padding: '0 20px' },
-  back: { display: 'inline-block', marginBottom: 20, color: '#2563eb', textDecoration: 'none', fontSize: 14 },
-  heading: { margin: '0 0 24px', fontSize: 22, fontWeight: 700 },
+  page: sharedFormPageStyle,
+  back: sharedBackLinkStyle,
+  heading: sharedPageHeadingStyle,
+  subheading: { ...sharedPageSubheadingStyle, marginBottom: 24 },
   form: { display: 'flex', flexDirection: 'column' },
   statusGuide: {
     marginBottom: 18,

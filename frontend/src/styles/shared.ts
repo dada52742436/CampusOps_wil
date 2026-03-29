@@ -22,3 +22,38 @@ export const sharedBackLinkStyle: React.CSSProperties = {
   textDecoration: 'none',
   fontSize: 14,
 };
+
+export const sharedPageStyle: React.CSSProperties = {
+  maxWidth: 760,
+  margin: '40px auto',
+  padding: '0 20px',
+};
+
+export const sharedFormPageStyle: React.CSSProperties = {
+  maxWidth: 560,
+  margin: '40px auto',
+  padding: '0 20px',
+};
+
+export const sharedPageHeaderStyle: React.CSSProperties = {
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'flex-end',
+  gap: 16,
+  marginBottom: 24,
+  flexWrap: 'wrap',
+};
+
+export const sharedPageHeadingStyle: React.CSSProperties = {
+  margin: 0,
+  fontSize: 22,
+  fontWeight: 700,
+  color: '#0f172a',
+};
+
+export const sharedPageSubheadingStyle: React.CSSProperties = {
+  margin: '8px 0 0',
+  fontSize: 14,
+  color: '#64748b',
+  lineHeight: 1.6,
+};

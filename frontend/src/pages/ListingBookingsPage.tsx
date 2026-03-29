@@ -2,6 +2,12 @@ import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { getListingBookings, updateBookingStatus, type Booking, type BookingStatus } from '../api/bookings';
 import { getListingById, type Listing } from '../api/listings';
+import {
+  sharedBackLinkStyle,
+  sharedPageHeadingStyle,
+  sharedPageStyle,
+  sharedPageSubheadingStyle,
+} from '../styles/shared';
 
 // Human-readable labels for each booking status value
 const STATUS_LABELS: Record<BookingStatus, string> = {
@@ -92,6 +98,9 @@ export function ListingBookingsPage() {
           {listing && (
             <p style={styles.subheading}>{listing.title}</p>
           )}
+          {!listing && (
+            <p style={styles.subheading}>Review and manage incoming requests for this listing.</p>
+          )}
         </div>
         {pendingCount > 0 && (
           <span style={styles.pendingBadge}>{pendingCount} pending</span>
@@ -158,11 +167,11 @@ export function ListingBookingsPage() {
 
 // ── Inline styles ─────────────────────────────────────────────────────────────
 const styles: Record<string, React.CSSProperties> = {
-  page: { maxWidth: 760, margin: '40px auto', padding: '0 20px' },
-  back: { display: 'inline-block', marginBottom: 16, color: '#2563eb', textDecoration: 'none', fontSize: 14 },
+  page: sharedPageStyle,
+  back: sharedBackLinkStyle,
   pageHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 },
-  heading: { margin: '0 0 4px', fontSize: 22, fontWeight: 700 },
-  subheading: { margin: 0, fontSize: 14, color: '#6b7280' },
+  heading: { ...sharedPageHeadingStyle, margin: '0 0 4px' },
+  subheading: { ...sharedPageSubheadingStyle, marginTop: 0 },
   pendingBadge: {
     fontSize: 13, padding: '4px 12px', borderRadius: 20,
     background: '#fff7ed', color: '#c2410c', border: '1px solid #fed7aa',

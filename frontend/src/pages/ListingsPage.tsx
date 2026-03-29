@@ -2,14 +2,14 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   getAllListings,
-  type PaginatedListings,
   type GetListingsParams,
+  type PaginatedListings,
 } from '../api/listings';
-import { useAuth } from '../context/AuthContext';
+import { getMySavedListings, removeSavedListing, saveListing } from '../api/savedListings';
 import { CONDITION_LABELS, CONDITIONS } from '../constants/conditions';
 import { LISTING_STATUS_LABELS } from '../constants/listingStatus';
+import { useAuth } from '../context/AuthContext';
 
-// Shape of the filter form — separate from page so that page can reset independently
 interface Filters {
   search: string;
   condition: string;
@@ -28,25 +28,18 @@ const EMPTY_FILTERS: Filters = {
 
 export function ListingsPage() {
   const { user } = useAuth();
-
-  // draft: what the user has typed into the form, not yet applied
   const [draft, setDraft] = useState<Filters>(EMPTY_FILTERS);
-  // filters: committed to the backend — changing this triggers a fetch
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
   const [page, setPage] = useState(1);
-
   const [result, setResult] = useState<PaginatedListings | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [savedListingIds, setSavedListingIds] = useState<number[]>([]);
+  const [saveLoadingId, setSaveLoadingId] = useState<number | null>(null);
 
-  // Re-fetch whenever the committed filters or page changes.
-  // setLoading(true) is NOT called here to avoid a synchronous setState-in-effect
-  // lint warning. On subsequent fetches the stale results remain visible while the
-  // new data arrives (better UX than a blank flash).
   useEffect(() => {
     let cancelled = false;
 
-    // Only include params that have a value — omitting them means "no filter"
     const params: GetListingsParams = { page };
     if (filters.search) params.search = filters.search;
     if (filters.condition) params.condition = filters.condition;
@@ -55,14 +48,34 @@ export function ListingsPage() {
     if (filters.maxPrice) params.maxPrice = Number(filters.maxPrice);
 
     getAllListings(params)
-      .then((data) => { if (!cancelled) setResult(data); })
-      .catch(() => { if (!cancelled) setError('Failed to load listings.'); })
-      .finally(() => { if (!cancelled) setLoading(false); });
+      .then((data) => {
+        if (!cancelled) setResult(data);
+      })
+      .catch(() => {
+        if (!cancelled) setError('Failed to load listings.');
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [filters, page]);
 
-  // Commit the draft to filters and jump back to page 1
+  useEffect(() => {
+    if (!user) {
+      setSavedListingIds([]);
+      return;
+    }
+
+    getMySavedListings()
+      .then((items) => setSavedListingIds(items.map((item) => item.listingId)))
+      .catch(() => {
+        // Keep the page usable even if saved listings fail to load.
+      });
+  }, [user]);
+
   function applyFilters() {
     setFilters({ ...draft });
     setPage(1);
@@ -74,11 +87,29 @@ export function ListingsPage() {
     setPage(1);
   }
 
-  // Condition dropdown applies immediately (single click, no typing needed)
   function handleConditionChange(value: string) {
     setDraft((prev) => ({ ...prev, condition: value }));
     setFilters((prev) => ({ ...prev, condition: value }));
     setPage(1);
+  }
+
+  async function handleToggleSave(listingId: number, isSaved: boolean) {
+    setSaveLoadingId(listingId);
+    setError('');
+
+    try {
+      if (isSaved) {
+        await removeSavedListing(listingId);
+        setSavedListingIds((prev) => prev.filter((id) => id !== listingId));
+      } else {
+        await saveListing(listingId);
+        setSavedListingIds((prev) => [...prev, listingId]);
+      }
+    } catch {
+      setError(isSaved ? 'Failed to remove saved listing.' : 'Failed to save listing.');
+    } finally {
+      setSaveLoadingId(null);
+    }
   }
 
   const hasActiveFilters = Object.values(filters).some(Boolean);
@@ -86,35 +117,10 @@ export function ListingsPage() {
 
   return (
     <div style={styles.page}>
-      {/* ── Header ─────────────────────────────────────────────────── */}
       <div style={styles.header}>
-        <h2 style={styles.title}>All Listings</h2>
-        <div style={styles.actions}>
-          {user && (
-            <Link to="/listings/new" style={styles.btnPrimary}>
-              + Post a Listing
-            </Link>
-          )}
-          {user && (
-            <Link to="/listings/mine" style={styles.btnSecondary}>
-              My Listings
-            </Link>
-          )}
-          {user && (
-            <Link to="/bookings/mine" style={styles.btnSecondary}>
-              My Bookings
-            </Link>
-          )}
-          {user && (
-            <Link to="/dashboard" style={styles.btnSecondary}>
-              Dashboard
-            </Link>
-          )}
-          {!user && (
-            <Link to="/login" style={styles.btnSecondary}>
-              Login to Post
-            </Link>
-          )}
+        <div>
+          <h2 style={styles.title}>All Listings</h2>
+          <p style={styles.subtitle}>Browse currently available pianos across Melbourne.</p>
         </div>
       </div>
 
@@ -122,19 +128,16 @@ export function ListingsPage() {
         Public marketplace results only show active listings that are currently available.
       </p>
 
-      {/* ── Filter bar ─────────────────────────────────────────────── */}
       <div style={styles.filterBar}>
-        {/* Full-text search across title + description */}
         <input
           style={styles.filterInput}
           type="text"
-          placeholder="Search title or description…"
+          placeholder="Search title or description..."
           value={draft.search}
           onChange={(e) => setDraft((prev) => ({ ...prev, search: e.target.value }))}
           onKeyDown={(e) => e.key === 'Enter' && applyFilters()}
         />
 
-        {/* Condition — applies immediately on change */}
         <select
           style={styles.filterSelect}
           value={draft.condition}
@@ -148,7 +151,6 @@ export function ListingsPage() {
           ))}
         </select>
 
-        {/* Brand partial match */}
         <input
           style={{ ...styles.filterInput, width: 120 }}
           type="text"
@@ -158,7 +160,6 @@ export function ListingsPage() {
           onKeyDown={(e) => e.key === 'Enter' && applyFilters()}
         />
 
-        {/* Price range */}
         <input
           style={{ ...styles.filterInput, width: 90 }}
           type="number"
@@ -168,7 +169,7 @@ export function ListingsPage() {
           onChange={(e) => setDraft((prev) => ({ ...prev, minPrice: e.target.value }))}
           onKeyDown={(e) => e.key === 'Enter' && applyFilters()}
         />
-        <span style={{ color: '#9ca3af', fontSize: 13, flexShrink: 0 }}>–</span>
+        <span style={{ color: '#9ca3af', fontSize: 13, flexShrink: 0 }}>-</span>
         <input
           style={{ ...styles.filterInput, width: 90 }}
           type="number"
@@ -189,12 +190,11 @@ export function ListingsPage() {
         )}
       </div>
 
-      {/* ── Results summary ─────────────────────────────────────────── */}
       {result && !loading && (
         <p style={styles.resultsInfo}>
           {result.total === 0
             ? 'No listings found.'
-            : `Showing ${(result.page - 1) * result.limit + 1}–${Math.min(
+            : `Showing ${(result.page - 1) * result.limit + 1}-${Math.min(
                 result.page * result.limit,
                 result.total,
               )} of ${result.total} listing${result.total !== 1 ? 's' : ''}`}
@@ -213,29 +213,48 @@ export function ListingsPage() {
         <p style={styles.info}>No active listings yet. Be the first to post one!</p>
       )}
 
-      {/* ── Listing grid ────────────────────────────────────────────── */}
       <div style={styles.grid}>
-        {listings.map((listing) => (
-          <Link to={`/listings/${listing.id}`} key={listing.id} style={styles.card}>
-            <div style={styles.cardHeader}>
-              <span style={styles.condition}>
-                {CONDITION_LABELS[listing.condition] ?? listing.condition}
-              </span>
-              <span style={{ ...styles.status, ...styles.statusActive }}>
-                {LISTING_STATUS_LABELS[listing.status]}
-              </span>
-              {listing.brand && <span style={styles.brand}>{listing.brand}</span>}
+        {listings.map((listing) => {
+          const isSaved = savedListingIds.includes(listing.id);
+          const canSave = user && user.id !== listing.ownerId;
+
+          return (
+            <div key={listing.id} style={styles.cardShell}>
+              {canSave && (
+                <button
+                  type="button"
+                  style={{
+                    ...styles.saveBtn,
+                    ...(isSaved ? styles.saveBtnActive : null),
+                  }}
+                  onClick={() => void handleToggleSave(listing.id, isSaved)}
+                  disabled={saveLoadingId === listing.id}
+                >
+                  {saveLoadingId === listing.id ? 'Saving...' : isSaved ? 'Saved' : 'Save'}
+                </button>
+              )}
+
+              <Link to={`/listings/${listing.id}`} style={styles.card}>
+                <div style={styles.cardHeader}>
+                  <span style={styles.condition}>
+                    {CONDITION_LABELS[listing.condition] ?? listing.condition}
+                  </span>
+                  <span style={{ ...styles.status, ...styles.statusActive }}>
+                    {LISTING_STATUS_LABELS[listing.status]}
+                  </span>
+                  {listing.brand && <span style={styles.brand}>{listing.brand}</span>}
+                </div>
+                <h3 style={styles.cardTitle}>{listing.title}</h3>
+                <p style={styles.price}>${listing.price.toLocaleString()}</p>
+                <p style={styles.meta}>
+                  {listing.location ?? 'Location not specified'} · by {listing.owner.username}
+                </p>
+              </Link>
             </div>
-            <h3 style={styles.cardTitle}>{listing.title}</h3>
-            <p style={styles.price}>${listing.price.toLocaleString()}</p>
-            <p style={styles.meta}>
-              {listing.location ?? 'Location not specified'} · by {listing.owner.username}
-            </p>
-          </Link>
-        ))}
+          );
+        })}
       </div>
 
-      {/* ── Pagination ──────────────────────────────────────────────── */}
       {result && result.totalPages > 1 && (
         <div style={styles.pagination}>
           <button
@@ -243,7 +262,7 @@ export function ListingsPage() {
             disabled={page <= 1}
             onClick={() => setPage((p) => p - 1)}
           >
-            ← Prev
+            Prev
           </button>
           <span style={styles.pageInfo}>
             Page {page} of {result.totalPages}
@@ -253,7 +272,7 @@ export function ListingsPage() {
             disabled={page >= result.totalPages}
             onClick={() => setPage((p) => p + 1)}
           >
-            Next →
+            Next
           </button>
         </div>
       )}
@@ -261,36 +280,17 @@ export function ListingsPage() {
   );
 }
 
-// ── Inline styles ─────────────────────────────────────────────────────────────
 const styles: Record<string, React.CSSProperties> = {
   page: { maxWidth: 900, margin: '40px auto', padding: '0 20px' },
   header: {
     display: 'flex',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-end',
     marginBottom: 20,
   },
   title: { margin: 0, fontSize: 24 },
+  subtitle: { margin: '8px 0 0', color: '#64748b', fontSize: 14 },
   marketplaceNote: { margin: '0 0 16px', color: '#6b7280', fontSize: 14, lineHeight: 1.6 },
-  actions: { display: 'flex', gap: 12 },
-  btnPrimary: {
-    padding: '8px 16px',
-    background: '#2563eb',
-    color: '#fff',
-    borderRadius: 6,
-    textDecoration: 'none',
-    fontSize: 14,
-  },
-  btnSecondary: {
-    padding: '8px 16px',
-    background: '#f3f4f6',
-    color: '#374151',
-    borderRadius: 6,
-    textDecoration: 'none',
-    fontSize: 14,
-    border: '1px solid #d1d5db',
-  },
-  // ── Filter bar
   filterBar: {
     display: 'flex',
     flexWrap: 'wrap',
@@ -338,7 +338,6 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: 'pointer',
     flexShrink: 0,
   },
-  // ── Results info
   resultsInfo: {
     margin: '0 0 14px',
     fontSize: 13,
@@ -358,11 +357,13 @@ const styles: Record<string, React.CSSProperties> = {
   },
   info: { color: '#6b7280', textAlign: 'center', marginTop: 40 },
   error: { color: '#dc2626', textAlign: 'center', marginTop: 40 },
-  // ── Grid
   grid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
     gap: 16,
+  },
+  cardShell: {
+    position: 'relative',
   },
   card: {
     display: 'block',
@@ -374,7 +375,24 @@ const styles: Record<string, React.CSSProperties> = {
     background: '#fff',
     transition: 'box-shadow 0.15s',
   },
-  cardHeader: { display: 'flex', gap: 8, marginBottom: 8 },
+  saveBtn: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    zIndex: 1,
+    padding: '5px 10px',
+    borderRadius: 999,
+    border: '1px solid #bfdbfe',
+    background: '#ffffff',
+    color: '#2563eb',
+    fontSize: 12,
+    cursor: 'pointer',
+  },
+  saveBtnActive: {
+    background: '#eff6ff',
+    color: '#1d4ed8',
+  },
+  cardHeader: { display: 'flex', gap: 8, marginBottom: 8, flexWrap: 'wrap' },
   condition: {
     fontSize: 12,
     padding: '2px 8px',
@@ -405,7 +423,6 @@ const styles: Record<string, React.CSSProperties> = {
   cardTitle: { margin: '0 0 8px', fontSize: 16, fontWeight: 600 },
   price: { margin: '0 0 8px', fontSize: 18, fontWeight: 700, color: '#2563eb' },
   meta: { margin: 0, fontSize: 13, color: '#6b7280' },
-  // ── Pagination
   pagination: {
     display: 'flex',
     justifyContent: 'center',
@@ -424,4 +441,3 @@ const styles: Record<string, React.CSSProperties> = {
   },
   pageInfo: { fontSize: 14, color: '#6b7280' },
 };
-

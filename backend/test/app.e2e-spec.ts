@@ -74,6 +74,16 @@ describe('AuthController (e2e)', () => {
       .expect(201);
   }
 
+  async function saveListing(input: {
+    accessToken: string;
+    listingId: number;
+  }): Promise<request.Response> {
+    return request(app.getHttpServer())
+      .post(`/saved-listings/${input.listingId}`)
+      .set('Authorization', `Bearer ${input.accessToken}`)
+      .expect(201);
+  }
+
   async function updateBookingStatus(input: {
     accessToken: string;
     bookingId: number;
@@ -153,6 +163,15 @@ describe('AuthController (e2e)', () => {
           where: {
             OR: [
               { buyerId: { in: userIds } },
+              { listing: { ownerId: { in: userIds } } },
+            ],
+          },
+        });
+
+        await prismaService.prisma.savedListing.deleteMany({
+          where: {
+            OR: [
+              { userId: { in: userIds } },
               { listing: { ownerId: { in: userIds } } },
             ],
           },
@@ -691,6 +710,132 @@ describe('AuthController (e2e)', () => {
         expect(response.body.data).toHaveLength(1);
         expect(response.body.data[0].id).toBe(activeListing.body.id);
         expect(response.body.data[0].status).toBe('active');
+      });
+  });
+
+  it('POST /saved-listings/:listingId should save a listing for the current user', async () => {
+    const sellerToken = await registerUserAndGetToken({
+      email: buildUniqueEmail('e2e-saved-seller'),
+      username: 'savedsell',
+    });
+    const buyerToken = await registerUserAndGetToken({
+      email: buildUniqueEmail('e2e-saved-buyer'),
+      username: 'savedbuyr',
+    });
+
+    const listing = await createListing({
+      accessToken: sellerToken,
+      title: 'Saved Listing Target',
+      description: 'Listing used to verify saving functionality.',
+    });
+
+    const response = await saveListing({
+      accessToken: buyerToken,
+      listingId: listing.body.id,
+    });
+
+    expect(response.body.listingId).toBe(listing.body.id);
+    expect(response.body.listing).toMatchObject({
+      title: 'Saved Listing Target',
+    });
+  });
+
+  it('POST /saved-listings/:listingId should return 409 for a duplicate save', async () => {
+    const sellerToken = await registerUserAndGetToken({
+      email: buildUniqueEmail('e2e-saved-dup-seller'),
+      username: 'savdups',
+    });
+    const buyerToken = await registerUserAndGetToken({
+      email: buildUniqueEmail('e2e-saved-dup-buyer'),
+      username: 'savdupb',
+    });
+
+    const listing = await createListing({
+      accessToken: sellerToken,
+      title: 'Duplicate Saved Listing',
+      description: 'Listing used to verify duplicate saves are rejected.',
+    });
+
+    await saveListing({
+      accessToken: buyerToken,
+      listingId: listing.body.id,
+    });
+
+    return request(app.getHttpServer())
+      .post(`/saved-listings/${listing.body.id}`)
+      .set('Authorization', `Bearer ${buyerToken}`)
+      .expect(409);
+  });
+
+  it('GET /saved-listings/mine should return the current user saved listings', async () => {
+    const sellerToken = await registerUserAndGetToken({
+      email: buildUniqueEmail('e2e-saved-list-seller'),
+      username: 'savelsts',
+    });
+    const buyerToken = await registerUserAndGetToken({
+      email: buildUniqueEmail('e2e-saved-list-buyer'),
+      username: 'savelstb',
+    });
+
+    const listing = await createListing({
+      accessToken: sellerToken,
+      title: 'Saved Listing Mine',
+      description: 'Listing used to verify the saved listings page endpoint.',
+    });
+
+    await saveListing({
+      accessToken: buyerToken,
+      listingId: listing.body.id,
+    });
+
+    return request(app.getHttpServer())
+      .get('/saved-listings/mine')
+      .set('Authorization', `Bearer ${buyerToken}`)
+      .expect(200)
+      .expect((response) => {
+        expect(Array.isArray(response.body)).toBe(true);
+        expect(response.body).toHaveLength(1);
+        expect(response.body[0].listing).toMatchObject({
+          title: 'Saved Listing Mine',
+        });
+      });
+  });
+
+  it('DELETE /saved-listings/:listingId should remove a saved listing', async () => {
+    const sellerToken = await registerUserAndGetToken({
+      email: buildUniqueEmail('e2e-saved-del-seller'),
+      username: 'savdels',
+    });
+    const buyerToken = await registerUserAndGetToken({
+      email: buildUniqueEmail('e2e-saved-del-buyer'),
+      username: 'savdelb',
+    });
+
+    const listing = await createListing({
+      accessToken: sellerToken,
+      title: 'Saved Listing Delete',
+      description: 'Listing used to verify unsaving functionality.',
+    });
+
+    await saveListing({
+      accessToken: buyerToken,
+      listingId: listing.body.id,
+    });
+
+    await request(app.getHttpServer())
+      .delete(`/saved-listings/${listing.body.id}`)
+      .set('Authorization', `Bearer ${buyerToken}`)
+      .expect(200)
+      .expect((response) => {
+        expect(response.body.message).toContain('removed from saved listings');
+      });
+
+    return request(app.getHttpServer())
+      .get('/saved-listings/mine')
+      .set('Authorization', `Bearer ${buyerToken}`)
+      .expect(200)
+      .expect((response) => {
+        expect(response.body).toHaveLength(0);
       });
   });
 

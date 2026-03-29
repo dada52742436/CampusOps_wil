@@ -8,9 +8,16 @@ import {
   type Listing,
 } from '../api/listings';
 import { createBooking } from '../api/bookings';
+import { getMySavedListings, removeSavedListing, saveListing } from '../api/savedListings';
 import { useAuth } from '../context/AuthContext';
 import { CONDITION_LABELS } from '../constants/conditions';
 import { LISTING_STATUS_LABELS } from '../constants/listingStatus';
+import {
+  sharedBackLinkStyle,
+  sharedPageHeadingStyle,
+  sharedPageStyle,
+  sharedPageSubheadingStyle,
+} from '../styles/shared';
 
 export function ListingDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -27,6 +34,8 @@ export function ListingDetailPage() {
   const [bookingSubmitting, setBookingSubmitting] = useState(false);
   const [bookingSuccess, setBookingSuccess] = useState(false);
   const [bookingError, setBookingError] = useState('');
+  const [isSaved, setIsSaved] = useState(false);
+  const [saveSubmitting, setSaveSubmitting] = useState(false);
 
   // Image upload state — only used by the owner
   const [uploading, setUploading] = useState(false);
@@ -40,6 +49,19 @@ export function ListingDetailPage() {
       .catch(() => setError('Listing not found.'))
       .finally(() => setLoading(false));
   }, [id]);
+
+  useEffect(() => {
+    if (!listing || !user || user.id === listing.ownerId) {
+      setIsSaved(false);
+      return;
+    }
+
+    getMySavedListings()
+      .then((items) => setIsSaved(items.some((item) => item.listingId === listing.id)))
+      .catch(() => {
+        // Keep the page usable if the saved-listings request fails.
+      });
+  }, [listing, user]);
 
   // True only when the current logged-in user is the owner of this listing
   const isOwner = user !== null && listing !== null && user.id === listing.ownerId;
@@ -110,6 +132,25 @@ export function ListingDetailPage() {
     }
   }
 
+  async function handleToggleSave() {
+    if (!listing) return;
+
+    setSaveSubmitting(true);
+    try {
+      if (isSaved) {
+        await removeSavedListing(listing.id);
+        setIsSaved(false);
+      } else {
+        await saveListing(listing.id);
+        setIsSaved(true);
+      }
+    } catch {
+      setError(isSaved ? 'Failed to remove this saved listing.' : 'Failed to save this listing.');
+    } finally {
+      setSaveSubmitting(false);
+    }
+  }
+
   if (loading) return <p style={styles.info}>Loading...</p>;
   if (error) return <p style={styles.error}>{error}</p>;
   if (!listing) return null;
@@ -141,6 +182,9 @@ export function ListingDetailPage() {
             </div>
             <h2 style={styles.title}>{listing.title}</h2>
             <p style={styles.price}>${listing.price.toLocaleString()}</p>
+            <p style={styles.subheading}>
+              {listing.location ?? 'Melbourne location pending'} · listed by {listing.owner.username}
+            </p>
           </div>
 
           {/* Edit / Delete buttons — only visible to the owner */}
@@ -157,6 +201,20 @@ export function ListingDetailPage() {
                 {deleting ? 'Deleting...' : 'Delete'}
               </button>
             </div>
+          )}
+
+          {!isOwner && user && (
+            <button
+              type="button"
+              style={{
+                ...styles.btnSave,
+                ...(isSaved ? styles.btnSaveActive : null),
+              }}
+              onClick={() => void handleToggleSave()}
+              disabled={saveSubmitting}
+            >
+              {saveSubmitting ? 'Saving...' : isSaved ? 'Saved' : 'Save Listing'}
+            </button>
           )}
         </div>
 
@@ -325,8 +383,8 @@ function MetaRow({ label, value }: { label: string; value: string }) {
 
 // ── Inline styles ─────────────────────────────────────────────────────────────
 const styles: Record<string, React.CSSProperties> = {
-  page: { maxWidth: 700, margin: '40px auto', padding: '0 20px' },
-  back: { display: 'inline-block', marginBottom: 20, color: '#2563eb', textDecoration: 'none', fontSize: 14 },
+  page: { ...sharedPageStyle, maxWidth: 700 },
+  back: sharedBackLinkStyle,
   card: { border: '1px solid #e5e7eb', borderRadius: 10, padding: 28, background: '#fff' },
   cardHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16 },
   badges: { display: 'flex', gap: 8, marginBottom: 10 },
@@ -345,8 +403,9 @@ const styles: Record<string, React.CSSProperties> = {
   statusActive: { background: '#eff6ff', color: '#1d4ed8', borderColor: '#bfdbfe' },
   statusSold: { background: '#fef2f2', color: '#b91c1c', borderColor: '#fecaca' },
   statusArchived: { background: '#f3f4f6', color: '#4b5563', borderColor: '#d1d5db' },
-  title: { margin: '0 0 8px', fontSize: 22, fontWeight: 700 },
+  title: { ...sharedPageHeadingStyle, margin: '0 0 8px' },
   price: { margin: 0, fontSize: 24, fontWeight: 700, color: '#2563eb' },
+  subheading: { ...sharedPageSubheadingStyle, marginTop: 10 },
   ownerActions: { display: 'flex', gap: 10, flexShrink: 0 },
   btnEdit: {
     padding: '7px 16px', background: '#f3f4f6', color: '#374151',
@@ -357,6 +416,14 @@ const styles: Record<string, React.CSSProperties> = {
     padding: '7px 16px', background: '#fee2e2', color: '#dc2626',
     borderRadius: 6, fontSize: 14, border: '1px solid #fca5a5',
     cursor: 'pointer',
+  },
+  btnSave: {
+    padding: '7px 16px', background: '#ffffff', color: '#2563eb',
+    borderRadius: 6, fontSize: 14, border: '1px solid #bfdbfe',
+    cursor: 'pointer',
+  },
+  btnSaveActive: {
+    background: '#eff6ff', color: '#1d4ed8', borderColor: '#93c5fd',
   },
   divider: { margin: '20px 0', borderColor: '#e5e7eb' },
   section: { marginBottom: 20 },

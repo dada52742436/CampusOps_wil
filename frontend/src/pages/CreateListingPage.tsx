@@ -3,7 +3,13 @@ import { useNavigate, Link } from 'react-router-dom';
 import { createListing, type CreateListingPayload } from '../api/listings';
 import { CONDITIONS } from '../constants/conditions';
 import { Field } from '../components/ui/Field';
-import { sharedInputStyle } from '../styles/shared';
+import {
+  sharedBackLinkStyle,
+  sharedFormPageStyle,
+  sharedInputStyle,
+  sharedPageHeadingStyle,
+  sharedPageSubheadingStyle,
+} from '../styles/shared';
 
 // CONDITIONS is the shared source of truth for valid condition values.
 // The ListingCondition type flows in via CreateListingPayload below.
@@ -68,8 +74,11 @@ export function CreateListingPage() {
 
   return (
     <div style={styles.page}>
-      <Link to="/listings" style={styles.back}>�?Back to Listings</Link>
+      <Link to="/listings" style={styles.back}>Back to Listings</Link>
       <h2 style={styles.heading}>Post a Listing</h2>
+      <p style={styles.subheading}>
+        Create a public listing for a piano that is ready to appear in the marketplace.
+      </p>
 
       <form onSubmit={handleSubmit} style={styles.form}>
         {error && <p style={styles.error}>{error}</p>}
@@ -156,9 +165,10 @@ export function CreateListingPage() {
 
 // ── Inline styles ─────────────────────────────────────────────────────────────
 const styles: Record<string, React.CSSProperties> = {
-  page: { maxWidth: 560, margin: '40px auto', padding: '0 20px' },
-  back: { display: 'inline-block', marginBottom: 20, color: '#2563eb', textDecoration: 'none', fontSize: 14 },
-  heading: { margin: '0 0 24px', fontSize: 22, fontWeight: 700 },
+  page: sharedFormPageStyle,
+  back: sharedBackLinkStyle,
+  heading: sharedPageHeadingStyle,
+  subheading: { ...sharedPageSubheadingStyle, marginBottom: 24 },
   form: { display: 'flex', flexDirection: 'column' },
   btnSubmit: {
     marginTop: 8, padding: '10px 0', background: '#2563eb', color: '#fff',

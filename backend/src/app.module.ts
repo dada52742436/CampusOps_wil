@@ -10,6 +10,7 @@ import { AuthModule } from './auth/auth.module.js';
 import { ProtectedController } from './protected/protected.controller.js';
 import { ListingsModule } from './listings/listings.module.js';
 import { BookingsModule } from './bookings/bookings.module.js';
+import { SavedListingsModule } from './saved-listings/saved-listings.module.js';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { BookingsModule } from './bookings/bookings.module.js';
     AuthModule,
     ListingsModule,  // Listing CRUD module
     BookingsModule,  // Booking lifecycle module
+    SavedListingsModule,
   ],
   controllers: [AppController, ProtectedController],
   providers: [AppService],

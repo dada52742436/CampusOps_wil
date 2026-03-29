@@ -3,6 +3,12 @@ import { Link, useNavigate } from 'react-router-dom';
 import { getMyListings, deleteListing, type Listing } from '../api/listings';
 import { CONDITION_LABELS } from '../constants/conditions';
 import { LISTING_STATUS_LABELS } from '../constants/listingStatus';
+import {
+  sharedPageHeadingStyle,
+  sharedPageHeaderStyle,
+  sharedPageStyle,
+  sharedPageSubheadingStyle,
+} from '../styles/shared';
 
 export function MyListingsPage() {
   const navigate = useNavigate();
@@ -35,6 +41,9 @@ export function MyListingsPage() {
         <div>
           <Link to="/listings" style={styles.back}>← All Listings</Link>
           <h2 style={styles.heading}>My Listings</h2>
+          <p style={styles.subheading}>
+            Manage every piano you have posted and keep track of which listings are active, sold, or archived.
+          </p>
         </div>
         <Link to="/listings/new" style={styles.btnNew}>
           + Post a Listing
@@ -135,10 +144,11 @@ export function MyListingsPage() {
 
 // ── Inline styles ─────────────────────────────────────────────────────────────
 const styles: Record<string, React.CSSProperties> = {
-  page: { maxWidth: 760, margin: '40px auto', padding: '0 20px' },
-  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 24 },
+  page: sharedPageStyle,
+  header: sharedPageHeaderStyle,
   back: { display: 'block', color: '#2563eb', textDecoration: 'none', fontSize: 13, marginBottom: 6 },
-  heading: { margin: 0, fontSize: 22, fontWeight: 700 },
+  heading: sharedPageHeadingStyle,
+  subheading: sharedPageSubheadingStyle,
   btnNew: {
     padding: '8px 16px', background: '#2563eb', color: '#fff',
     borderRadius: 6, textDecoration: 'none', fontSize: 14,
