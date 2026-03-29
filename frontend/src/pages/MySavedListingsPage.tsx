@@ -43,6 +43,33 @@ export function MySavedListingsPage() {
         </div>
       </div>
 
+      {!loading && !error && savedListings.length > 0 && (
+        <div style={styles.summaryRow}>
+          <div style={styles.summaryCard}>
+            <span style={styles.summaryValue}>{savedListings.length}</span>
+            <span style={styles.summaryLabel}>Saved</span>
+          </div>
+          <div style={styles.summaryCard}>
+            <span style={styles.summaryValue}>
+              {savedListings.filter((saved) => saved.listing.status === 'active').length}
+            </span>
+            <span style={styles.summaryLabel}>Active</span>
+          </div>
+          <div style={styles.summaryCard}>
+            <span style={styles.summaryValue}>
+              {savedListings.filter((saved) => saved.listing.status === 'sold').length}
+            </span>
+            <span style={styles.summaryLabel}>Sold</span>
+          </div>
+          <div style={styles.summaryCard}>
+            <span style={styles.summaryValue}>
+              {savedListings.filter((saved) => saved.listing.status === 'archived').length}
+            </span>
+            <span style={styles.summaryLabel}>Archived</span>
+          </div>
+        </div>
+      )}
+
       {loading && <p style={styles.info}>Loading...</p>}
       {error && <p style={styles.error}>{error}</p>}
 
@@ -90,6 +117,20 @@ export function MySavedListingsPage() {
               <span style={styles.rowDate}>
                 Saved on {new Date(saved.createdAt).toLocaleDateString()}
               </span>
+              {saved.listing.status !== 'active' && (
+                <p
+                  style={{
+                    ...styles.statusHint,
+                    ...(saved.listing.status === 'sold'
+                      ? styles.statusHintSold
+                      : styles.statusHintArchived),
+                  }}
+                >
+                  {saved.listing.status === 'sold'
+                    ? 'This saved piano has been marked as sold and can no longer receive new booking requests.'
+                    : 'This saved piano is archived and is currently hidden from the public marketplace.'}
+                </p>
+              )}
             </div>
 
             <button
@@ -115,6 +156,18 @@ const styles: Record<string, React.CSSProperties> = {
   info: { textAlign: 'center', color: '#6b7280', marginTop: 40 },
   error: { color: '#dc2626', marginTop: 12 },
   emptyBox: { textAlign: 'center', marginTop: 60 },
+  summaryRow: { display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 12, marginBottom: 18 },
+  summaryCard: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 4,
+    padding: '14px 16px',
+    border: '1px solid #e5e7eb',
+    borderRadius: 8,
+    background: '#f9fafb',
+  },
+  summaryValue: { fontSize: 22, fontWeight: 700, color: '#111827' },
+  summaryLabel: { fontSize: 12, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 0.8 },
   btnBrowse: {
     display: 'inline-block',
     padding: '8px 18px',
@@ -157,6 +210,16 @@ const styles: Record<string, React.CSSProperties> = {
   rowTitle: { fontWeight: 600, fontSize: 15, color: '#111827', textDecoration: 'none' },
   rowMeta: { fontSize: 13, color: '#6b7280' },
   rowDate: { fontSize: 12, color: '#9ca3af' },
+  statusHint: {
+    margin: '6px 0 0',
+    padding: '10px 12px',
+    borderRadius: 8,
+    fontSize: 12,
+    lineHeight: 1.6,
+    border: '1px solid transparent',
+  },
+  statusHintSold: { background: '#fef2f2', color: '#b91c1c', borderColor: '#fecaca' },
+  statusHintArchived: { background: '#f3f4f6', color: '#4b5563', borderColor: '#d1d5db' },
   btnRemove: {
     padding: '6px 14px',
     background: '#fff7ed',

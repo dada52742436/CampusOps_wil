@@ -29,6 +29,7 @@ export function Navbar() {
               <NavItem to="/listings/mine">My Listings</NavItem>
               <NavItem to="/saved-listings/mine">Saved</NavItem>
               <NavItem to="/bookings/mine">My Bookings</NavItem>
+              <NavItem to="/inquiries/mine">My Inquiries</NavItem>
               <NavItem to="/dashboard">Dashboard</NavItem>
               <div style={styles.userBlock}>
                 <span style={styles.userMeta}>Signed in as</span>

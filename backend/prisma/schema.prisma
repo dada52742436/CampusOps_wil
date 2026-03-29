@@ -43,6 +43,14 @@ enum ListingStatus {
   archived
 }
 
+// Status of a contact request sent by a buyer to a seller.
+// open   = seller still needs to review/respond
+// closed = conversation/request has been concluded
+enum InquiryStatus {
+  open
+  closed
+}
+
 // ── User ──────────────────────────────────────────────────────────────────────
 model User {
   id        Int       @id @default(autoincrement())
@@ -60,6 +68,9 @@ model User {
 
   // Listings this user has saved for later browsing
   savedListings SavedListing[]
+
+  // Inquiries this user has sent as an interested buyer
+  inquiries Inquiry[] @relation("InquiryRequester")
 
   @@map("users")
 }
@@ -91,6 +102,9 @@ model Listing {
 
   // Users who have saved this listing
   savedBy     SavedListing[]
+
+  // Contact requests submitted against this listing
+  inquiries   Inquiry[]
 
   @@map("listings")
 }
@@ -149,4 +163,22 @@ model SavedListing {
 
   @@unique([userId, listingId])
   @@map("saved_listings")
+}
+
+// Stores a lightweight contact request from a buyer to the seller of a listing.
+// This is intentionally not a full chat system yet.
+model Inquiry {
+  id          Int           @id @default(autoincrement())
+  listingId   Int
+  requesterId Int
+  message     String
+  status      InquiryStatus @default(open)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  listing     Listing       @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  requester   User          @relation("InquiryRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+
+  @@unique([listingId, requesterId])
+  @@map("inquiries")
 }

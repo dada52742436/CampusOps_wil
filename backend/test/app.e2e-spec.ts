@@ -84,6 +84,33 @@ describe('AuthController (e2e)', () => {
       .expect(201);
   }
 
+  async function createInquiry(input: {
+    accessToken: string;
+    listingId: number;
+    message?: string;
+  }): Promise<request.Response> {
+    return request(app.getHttpServer())
+      .post(`/listings/${input.listingId}/inquiries`)
+      .set('Authorization', `Bearer ${input.accessToken}`)
+      .send({
+        message: input.message ?? 'I would love to know if this piano is still available.',
+      })
+      .expect(201);
+  }
+
+  async function updateInquiryStatus(input: {
+    accessToken: string;
+    inquiryId: number;
+    status: 'open' | 'closed';
+  }): Promise<request.Response> {
+    return request(app.getHttpServer())
+      .patch(`/inquiries/${input.inquiryId}/status`)
+      .set('Authorization', `Bearer ${input.accessToken}`)
+      .send({
+        status: input.status,
+      });
+  }
+
   async function updateBookingStatus(input: {
     accessToken: string;
     bookingId: number;
@@ -163,6 +190,15 @@ describe('AuthController (e2e)', () => {
           where: {
             OR: [
               { buyerId: { in: userIds } },
+              { listing: { ownerId: { in: userIds } } },
+            ],
+          },
+        });
+
+        await prismaService.prisma.inquiry.deleteMany({
+          where: {
+            OR: [
+              { requesterId: { in: userIds } },
               { listing: { ownerId: { in: userIds } } },
             ],
           },
@@ -837,6 +873,437 @@ describe('AuthController (e2e)', () => {
       .expect((response) => {
         expect(response.body).toHaveLength(0);
       });
+  });
+
+  it('POST /listings/:listingId/inquiries should create an inquiry for a buyer', async () => {
+    const sellerEmail = buildUniqueEmail('e2e-inquiry-seller');
+    const buyerEmail = buildUniqueEmail('e2e-inquiry-buyer');
+
+    const sellerToken = await registerUserAndGetToken({
+      email: sellerEmail,
+      username: 'inq-seller',
+    });
+    const buyerToken = await registerUserAndGetToken({
+      email: buyerEmail,
+      username: 'inq-buyer',
+    });
+
+    const listing = await createListing({
+      accessToken: sellerToken,
+      title: 'Inquiry Target Listing',
+      description: 'Listing used to verify inquiry creation.',
+    });
+
+    const response = await createInquiry({
+      accessToken: buyerToken,
+      listingId: listing.body.id,
+      message: 'Can you share the piano serial number?',
+    });
+
+    expect(response.body.id).toEqual(expect.any(Number));
+    expect(response.body.status).toBe('open');
+    expect(response.body.message).toBe('Can you share the piano serial number?');
+    expect(response.body.listing).toMatchObject({
+      id: listing.body.id,
+      title: 'Inquiry Target Listing',
+      status: 'active',
+    });
+    expect(response.body.requester).toMatchObject({
+      username: 'inq-buyer',
+    });
+  });
+
+  it('GET /inquiries/mine should return only the current user inquiries', async () => {
+    const sellerEmail = buildUniqueEmail('e2e-inquiries-mine-seller');
+    const firstBuyerEmail = buildUniqueEmail('e2e-inquiries-mine-a');
+    const secondBuyerEmail = buildUniqueEmail('e2e-inquiries-mine-b');
+
+    const sellerToken = await registerUserAndGetToken({
+      email: sellerEmail,
+      username: 'inqmine-s',
+    });
+    const firstBuyerToken = await registerUserAndGetToken({
+      email: firstBuyerEmail,
+      username: 'inqmine-a',
+    });
+    const secondBuyerToken = await registerUserAndGetToken({
+      email: secondBuyerEmail,
+      username: 'inqmine-b',
+    });
+
+    const firstListing = await createListing({
+      accessToken: sellerToken,
+      title: 'Inquiry Mine A',
+      description: 'Listing used to verify the first buyer inquiry list.',
+    });
+    const secondListing = await createListing({
+      accessToken: sellerToken,
+      title: 'Inquiry Mine B',
+      description: 'Listing used to verify the second buyer inquiry list.',
+    });
+
+    await createInquiry({
+      accessToken: firstBuyerToken,
+      listingId: firstListing.body.id,
+      message: 'First buyer inquiry.',
+    });
+    await createInquiry({
+      accessToken: secondBuyerToken,
+      listingId: secondListing.body.id,
+      message: 'Second buyer inquiry.',
+    });
+
+    return request(app.getHttpServer())
+      .get('/inquiries/mine')
+      .set('Authorization', `Bearer ${firstBuyerToken}`)
+      .expect(200)
+      .expect((response) => {
+        expect(Array.isArray(response.body)).toBe(true);
+        expect(response.body).toHaveLength(1);
+        expect(response.body[0]).toMatchObject({
+          message: 'First buyer inquiry.',
+          status: 'open',
+          listing: {
+            title: 'Inquiry Mine A',
+          },
+        });
+      });
+  });
+
+  it('GET /listings/:listingId/inquiries should return inquiries to the listing owner', async () => {
+    const sellerEmail = buildUniqueEmail('e2e-inquiry-view-seller');
+    const buyerEmail = buildUniqueEmail('e2e-inquiry-view-buyer');
+
+    const sellerToken = await registerUserAndGetToken({
+      email: sellerEmail,
+      username: 'inqview-s',
+    });
+    const buyerToken = await registerUserAndGetToken({
+      email: buyerEmail,
+      username: 'inqview-b',
+    });
+
+    const listing = await createListing({
+      accessToken: sellerToken,
+      title: 'Seller Inquiry Inbox',
+      description: 'Listing used to verify seller inquiry visibility.',
+    });
+
+    await createInquiry({
+      accessToken: buyerToken,
+      listingId: listing.body.id,
+      message: 'Can you share when it was last serviced?',
+    });
+
+    return request(app.getHttpServer())
+      .get(`/listings/${listing.body.id}/inquiries`)
+      .set('Authorization', `Bearer ${sellerToken}`)
+      .expect(200)
+      .expect((response) => {
+        expect(Array.isArray(response.body)).toBe(true);
+        expect(response.body).toHaveLength(1);
+        expect(response.body[0]).toMatchObject({
+          status: 'open',
+          message: 'Can you share when it was last serviced?',
+          requester: {
+            username: 'inqview-b',
+          },
+        });
+      });
+  });
+
+  it('POST /listings/:listingId/inquiries should return 409 for a duplicate inquiry', async () => {
+    const sellerEmail = buildUniqueEmail('e2e-duplicate-inquiry-seller');
+    const buyerEmail = buildUniqueEmail('e2e-duplicate-inquiry-buyer');
+
+    const sellerToken = await registerUserAndGetToken({
+      email: sellerEmail,
+      username: 'inqdup-s',
+    });
+    const buyerToken = await registerUserAndGetToken({
+      email: buyerEmail,
+      username: 'inqdup-b',
+    });
+
+    const listing = await createListing({
+      accessToken: sellerToken,
+      title: 'Duplicate Inquiry Target',
+      description: 'Listing used to verify duplicate inquiry protection.',
+    });
+
+    await createInquiry({
+      accessToken: buyerToken,
+      listingId: listing.body.id,
+      message: 'Initial inquiry message.',
+    });
+
+    return request(app.getHttpServer())
+      .post(`/listings/${listing.body.id}/inquiries`)
+      .set('Authorization', `Bearer ${buyerToken}`)
+      .send({
+        message: 'Second inquiry should be rejected.',
+      })
+      .expect(409);
+  });
+
+  it('POST /listings/:listingId/inquiries should return 400 for a sold listing', async () => {
+    const sellerEmail = buildUniqueEmail('e2e-sold-inquiry-seller');
+    const buyerEmail = buildUniqueEmail('e2e-sold-inquiry-buyer');
+
+    const sellerToken = await registerUserAndGetToken({
+      email: sellerEmail,
+      username: 'inqsold-s',
+    });
+    const buyerToken = await registerUserAndGetToken({
+      email: buyerEmail,
+      username: 'inqsold-b',
+    });
+
+    const listing = await createListing({
+      accessToken: sellerToken,
+      title: 'Sold Inquiry Target',
+      description: 'Listing used to verify sold listings cannot receive inquiries.',
+    });
+
+    await request(app.getHttpServer())
+      .patch(`/listings/${listing.body.id}`)
+      .set('Authorization', `Bearer ${sellerToken}`)
+      .send({ status: 'sold' })
+      .expect(200);
+
+    return request(app.getHttpServer())
+      .post(`/listings/${listing.body.id}/inquiries`)
+      .set('Authorization', `Bearer ${buyerToken}`)
+      .send({ message: 'Trying to contact about a sold listing.' })
+      .expect(400);
+  });
+
+  it('GET /listings/:listingId/inquiries should return 403 for a non-owner', async () => {
+    const sellerEmail = buildUniqueEmail('e2e-inquiry-owner-seller');
+    const buyerEmail = buildUniqueEmail('e2e-inquiry-owner-buyer');
+    const outsiderEmail = buildUniqueEmail('e2e-inquiry-owner-outsider');
+
+    const sellerToken = await registerUserAndGetToken({
+      email: sellerEmail,
+      username: 'inqown-s',
+    });
+    const buyerToken = await registerUserAndGetToken({
+      email: buyerEmail,
+      username: 'inqown-b',
+    });
+    const outsiderToken = await registerUserAndGetToken({
+      email: outsiderEmail,
+      username: 'inqown-o',
+    });
+
+    const listing = await createListing({
+      accessToken: sellerToken,
+      title: 'Owner Only Inquiry View',
+      description: 'Listing used to verify seller-only inquiry visibility.',
+    });
+
+    await createInquiry({
+      accessToken: buyerToken,
+      listingId: listing.body.id,
+      message: 'Valid inquiry before outsider access attempt.',
+    });
+
+    return request(app.getHttpServer())
+      .get(`/listings/${listing.body.id}/inquiries`)
+      .set('Authorization', `Bearer ${outsiderToken}`)
+      .expect(403);
+  });
+
+  it('PATCH /inquiries/:id/status should allow the seller to close an open inquiry', async () => {
+    const sellerEmail = buildUniqueEmail('e2e-inquiry-close-seller');
+    const buyerEmail = buildUniqueEmail('e2e-inquiry-close-buyer');
+
+    const sellerToken = await registerUserAndGetToken({
+      email: sellerEmail,
+      username: 'inqcls-s',
+    });
+    const buyerToken = await registerUserAndGetToken({
+      email: buyerEmail,
+      username: 'inqcls-b',
+    });
+
+    const listing = await createListing({
+      accessToken: sellerToken,
+      title: 'Close Inquiry Listing',
+      description: 'Listing used to verify seller inquiry closing.',
+    });
+
+    const inquiry = await createInquiry({
+      accessToken: buyerToken,
+      listingId: listing.body.id,
+      message: 'Please let me know if this is still available.',
+    });
+
+    return updateInquiryStatus({
+      accessToken: sellerToken,
+      inquiryId: inquiry.body.id,
+      status: 'closed',
+    }).then((response) => {
+      expect(response.status).toBe(200);
+      expect(response.body.status).toBe('closed');
+      expect(response.body.listing).toMatchObject({
+        id: listing.body.id,
+        title: 'Close Inquiry Listing',
+      });
+    });
+  });
+
+  it('PATCH /inquiries/:id/status should allow the requester to close their own inquiry', async () => {
+    const sellerEmail = buildUniqueEmail('e2e-inquiry-close-own-seller');
+    const buyerEmail = buildUniqueEmail('e2e-inquiry-close-own-buyer');
+
+    const sellerToken = await registerUserAndGetToken({
+      email: sellerEmail,
+      username: 'inqclo-s',
+    });
+    const buyerToken = await registerUserAndGetToken({
+      email: buyerEmail,
+      username: 'inqclo-b',
+    });
+
+    const listing = await createListing({
+      accessToken: sellerToken,
+      title: 'Requester Close Inquiry Listing',
+      description: 'Listing used to verify buyer inquiry closing.',
+    });
+
+    const inquiry = await createInquiry({
+      accessToken: buyerToken,
+      listingId: listing.body.id,
+      message: 'I may not need this anymore.',
+    });
+
+    return updateInquiryStatus({
+      accessToken: buyerToken,
+      inquiryId: inquiry.body.id,
+      status: 'closed',
+    }).then((response) => {
+      expect(response.status).toBe(200);
+      expect(response.body.status).toBe('closed');
+      expect(response.body.requester).toMatchObject({
+        username: 'inqclo-b',
+      });
+    });
+  });
+
+  it('PATCH /inquiries/:id/status should return 403 for a user who is not part of the inquiry', async () => {
+    const sellerEmail = buildUniqueEmail('e2e-inquiry-third-seller');
+    const buyerEmail = buildUniqueEmail('e2e-inquiry-third-buyer');
+    const outsiderEmail = buildUniqueEmail('e2e-inquiry-third-outsider');
+
+    const sellerToken = await registerUserAndGetToken({
+      email: sellerEmail,
+      username: 'inq3rd-s',
+    });
+    const buyerToken = await registerUserAndGetToken({
+      email: buyerEmail,
+      username: 'inq3rd-b',
+    });
+    const outsiderToken = await registerUserAndGetToken({
+      email: outsiderEmail,
+      username: 'inq3rd-o',
+    });
+
+    const listing = await createListing({
+      accessToken: sellerToken,
+      title: 'Third Party Inquiry Listing',
+      description: 'Listing used to verify outsider inquiry status changes are forbidden.',
+    });
+
+    const inquiry = await createInquiry({
+      accessToken: buyerToken,
+      listingId: listing.body.id,
+      message: 'Inquiry before outsider update attempt.',
+    });
+
+    return updateInquiryStatus({
+      accessToken: outsiderToken,
+      inquiryId: inquiry.body.id,
+      status: 'closed',
+    }).then((response) => {
+      expect(response.status).toBe(403);
+    });
+  });
+
+  it('PATCH /inquiries/:id/status should return 400 when trying to reopen an inquiry', async () => {
+    const sellerEmail = buildUniqueEmail('e2e-inquiry-reopen-seller');
+    const buyerEmail = buildUniqueEmail('e2e-inquiry-reopen-buyer');
+
+    const sellerToken = await registerUserAndGetToken({
+      email: sellerEmail,
+      username: 'inqrop-s',
+    });
+    const buyerToken = await registerUserAndGetToken({
+      email: buyerEmail,
+      username: 'inqrop-b',
+    });
+
+    const listing = await createListing({
+      accessToken: sellerToken,
+      title: 'Reopen Inquiry Listing',
+      description: 'Listing used to verify inquiries cannot be reopened.',
+    });
+
+    const inquiry = await createInquiry({
+      accessToken: buyerToken,
+      listingId: listing.body.id,
+      message: 'Inquiry before invalid reopen attempt.',
+    });
+
+    return updateInquiryStatus({
+      accessToken: sellerToken,
+      inquiryId: inquiry.body.id,
+      status: 'open',
+    }).then((response) => {
+      expect(response.status).toBe(400);
+    });
+  });
+
+  it('PATCH /inquiries/:id/status should return 400 when changing a closed inquiry again', async () => {
+    const sellerEmail = buildUniqueEmail('e2e-inquiry-terminal-seller');
+    const buyerEmail = buildUniqueEmail('e2e-inquiry-terminal-buyer');
+
+    const sellerToken = await registerUserAndGetToken({
+      email: sellerEmail,
+      username: 'inqter-s',
+    });
+    const buyerToken = await registerUserAndGetToken({
+      email: buyerEmail,
+      username: 'inqter-b',
+    });
+
+    const listing = await createListing({
+      accessToken: sellerToken,
+      title: 'Terminal Inquiry Listing',
+      description: 'Listing used to verify closed inquiries cannot be changed again.',
+    });
+
+    const inquiry = await createInquiry({
+      accessToken: buyerToken,
+      listingId: listing.body.id,
+      message: 'Inquiry before terminal status validation.',
+    });
+
+    await updateInquiryStatus({
+      accessToken: sellerToken,
+      inquiryId: inquiry.body.id,
+      status: 'closed',
+    }).then((response) => {
+      expect(response.status).toBe(200);
+    });
+
+    return updateInquiryStatus({
+      accessToken: buyerToken,
+      inquiryId: inquiry.body.id,
+      status: 'closed',
+    }).then((response) => {
+      expect(response.status).toBe(400);
+    });
   });
 
   it('POST /listings/:listingId/bookings should create a booking for a buyer', async () => {

@@ -1,17 +1,18 @@
 import { useEffect, useState } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { createBooking } from '../api/bookings';
+import { createInquiry, getMyInquiries, type InquiryStatus } from '../api/inquiries';
 import {
-  getListingById,
   deleteListing,
-  uploadListingImage,
   deleteListingImage,
+  getListingById,
+  uploadListingImage,
   type Listing,
 } from '../api/listings';
-import { createBooking } from '../api/bookings';
 import { getMySavedListings, removeSavedListing, saveListing } from '../api/savedListings';
-import { useAuth } from '../context/AuthContext';
 import { CONDITION_LABELS } from '../constants/conditions';
 import { LISTING_STATUS_LABELS } from '../constants/listingStatus';
+import { useAuth } from '../context/AuthContext';
 import {
   sharedBackLinkStyle,
   sharedPageHeadingStyle,
@@ -29,21 +30,27 @@ export function ListingDetailPage() {
   const [error, setError] = useState('');
   const [deleting, setDeleting] = useState(false);
 
-  // Booking form state — only rendered for logged-in non-owners
   const [bookingMsg, setBookingMsg] = useState('');
   const [bookingSubmitting, setBookingSubmitting] = useState(false);
   const [bookingSuccess, setBookingSuccess] = useState(false);
   const [bookingError, setBookingError] = useState('');
+
+  const [inquiryMsg, setInquiryMsg] = useState('');
+  const [inquirySubmitting, setInquirySubmitting] = useState(false);
+  const [inquirySuccess, setInquirySuccess] = useState(false);
+  const [inquiryError, setInquiryError] = useState('');
+  const [existingInquiryStatus, setExistingInquiryStatus] = useState<InquiryStatus | null>(null);
+
   const [isSaved, setIsSaved] = useState(false);
   const [saveSubmitting, setSaveSubmitting] = useState(false);
+  const [saveFeedback, setSaveFeedback] = useState('');
 
-  // Image upload state — only used by the owner
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
 
-  // Fetch the listing when the component mounts or the id param changes
   useEffect(() => {
     if (!id) return;
+    setLoading(true);
     getListingById(Number(id))
       .then(setListing)
       .catch(() => setError('Listing not found.'))
@@ -59,15 +66,32 @@ export function ListingDetailPage() {
     getMySavedListings()
       .then((items) => setIsSaved(items.some((item) => item.listingId === listing.id)))
       .catch(() => {
-        // Keep the page usable if the saved-listings request fails.
+        // Keep the page usable if the saved listings request fails.
       });
   }, [listing, user]);
 
-  // True only when the current logged-in user is the owner of this listing
+  useEffect(() => {
+    if (!listing || !user || user.id === listing.ownerId) {
+      setExistingInquiryStatus(null);
+      return;
+    }
+
+    getMyInquiries()
+      .then((items) => {
+        const existingInquiry = items.find((item) => item.listingId === listing.id);
+        setExistingInquiryStatus(existingInquiry?.status ?? null);
+        if (existingInquiry) {
+          setInquirySuccess(true);
+        }
+      })
+      .catch(() => {
+        // Keep the detail page usable even if the inquiries request fails.
+      });
+  }, [listing, user]);
+
   const isOwner = user !== null && listing !== null && user.id === listing.ownerId;
   const canReceiveBookings = listing?.status === 'active';
 
-  // Buyer submits a booking request for this listing
   async function handleBooking(e: React.FormEvent) {
     e.preventDefault();
     if (!listing) return;
@@ -85,6 +109,27 @@ export function ListingDetailPage() {
       );
     } finally {
       setBookingSubmitting(false);
+    }
+  }
+
+  async function handleInquiry(e: React.FormEvent) {
+    e.preventDefault();
+    if (!listing) return;
+    setInquiryError('');
+    setInquirySubmitting(true);
+    try {
+      await createInquiry(listing.id, inquiryMsg.trim());
+      setInquirySuccess(true);
+      setExistingInquiryStatus('open');
+    } catch (err: unknown) {
+      const msg =
+        (err as { response?: { data?: { message?: string | string[] } } })
+          ?.response?.data?.message;
+      setInquiryError(
+        Array.isArray(msg) ? msg.join(', ') : (msg ?? 'Failed to send inquiry.'),
+      );
+    } finally {
+      setInquirySubmitting(false);
     }
   }
 
@@ -113,7 +158,7 @@ export function ListingDetailPage() {
         prev ? { ...prev, images: prev.images.filter((img) => img.id !== imageId) } : prev,
       );
     } catch {
-      // keep the image in the list if the delete request failed
+      // Keep the image visible if the delete request failed.
     }
   }
 
@@ -124,7 +169,6 @@ export function ListingDetailPage() {
     setDeleting(true);
     try {
       await deleteListing(listing.id);
-      // After deletion, go back to the listings index
       navigate('/listings');
     } catch {
       setError('Failed to delete. Please try again.');
@@ -136,13 +180,16 @@ export function ListingDetailPage() {
     if (!listing) return;
 
     setSaveSubmitting(true);
+    setSaveFeedback('');
     try {
       if (isSaved) {
         await removeSavedListing(listing.id);
         setIsSaved(false);
+        setSaveFeedback('Removed from your saved listings.');
       } else {
         await saveListing(listing.id);
         setIsSaved(true);
+        setSaveFeedback('Saved to your shortlist.');
       }
     } catch {
       setError(isSaved ? 'Failed to remove this saved listing.' : 'Failed to save this listing.');
@@ -157,15 +204,17 @@ export function ListingDetailPage() {
 
   return (
     <div style={styles.page}>
-      {/* Back link */}
-      <Link to="/listings" style={styles.back}>← Back to Listings</Link>
+      <Link to="/listings" style={styles.back}>Back to Listings</Link>
 
       <div style={styles.card}>
-        {/* Header: title + owner actions */}
+        {saveFeedback && <p style={styles.saveFeedback}>{saveFeedback}</p>}
+
         <div style={styles.cardHeader}>
           <div>
             <div style={styles.badges}>
-              <span style={styles.condition}>{CONDITION_LABELS[listing.condition] ?? listing.condition}</span>
+              <span style={styles.condition}>
+                {CONDITION_LABELS[listing.condition] ?? listing.condition}
+              </span>
               <span
                 style={{
                   ...styles.status,
@@ -187,15 +236,17 @@ export function ListingDetailPage() {
             </p>
           </div>
 
-          {/* Edit / Delete buttons — only visible to the owner */}
           {isOwner && (
             <div style={styles.ownerActions}>
               <Link to={`/listings/${listing.id}/edit`} style={styles.btnEdit}>
                 Edit
               </Link>
+              <Link to={`/listings/${listing.id}/inquiries`} style={styles.btnEdit}>
+                View Inquiries
+              </Link>
               <button
                 style={styles.btnDelete}
-                onClick={handleDelete}
+                onClick={() => void handleDelete()}
                 disabled={deleting}
               >
                 {deleting ? 'Deleting...' : 'Delete'}
@@ -220,7 +271,6 @@ export function ListingDetailPage() {
 
         <hr style={styles.divider} />
 
-        {/* Photos */}
         {(listing.images.length > 0 || isOwner) && (
           <section style={styles.section}>
             <h4 style={styles.sectionLabel}>Photos</h4>
@@ -257,7 +307,7 @@ export function ListingDetailPage() {
                     }}
                     disabled={uploading}
                   />
-                  {uploading ? 'Uploading…' : '+ Add Photo'}
+                  {uploading ? 'Uploading...' : '+ Add Photo'}
                 </label>
                 {listing.images.length === 0 && !uploading && (
                   <p style={styles.noPhotosHint}>No photos yet. Add up to 5 photos.</p>
@@ -273,7 +323,6 @@ export function ListingDetailPage() {
           </section>
         )}
 
-        {/* Description */}
         <section style={styles.section}>
           {isOwner && (
             <div
@@ -297,31 +346,96 @@ export function ListingDetailPage() {
           <p style={styles.description}>{listing.description}</p>
         </section>
 
-        {/* Meta info */}
         <section style={styles.section}>
           <h4 style={styles.sectionLabel}>Details</h4>
           <div style={styles.metaGrid}>
             <MetaRow label="Location" value={listing.location ?? '—'} />
             <MetaRow label="Posted by" value={listing.owner.username} />
-            <MetaRow
-              label="Listed on"
-              value={new Date(listing.createdAt).toLocaleDateString()}
-            />
+            <MetaRow label="Listed on" value={new Date(listing.createdAt).toLocaleDateString()} />
           </div>
         </section>
       </div>
 
-      {/* ── Booking section ─────────────────────────────────── */}
       {isOwner ? (
-        // Seller: link through to the booking management page for this listing
-        <div style={styles.bookingCard}>
-          <h4 style={styles.sectionLabel}>Booking Requests</h4>
-          <Link to={`/listings/${listing.id}/bookings`} style={styles.btnViewBookings}>
-            View Bookings for This Listing →
+        <div style={styles.secondaryCard}>
+          <h4 style={styles.sectionLabel}>Inquiry Requests</h4>
+          <p style={styles.cardHint}>
+            Interested buyers can contact you here before deciding whether to send a booking request.
+          </p>
+          <Link to={`/listings/${listing.id}/inquiries`} style={styles.btnViewCardAction}>
+            View Inquiries for This Listing
           </Link>
         </div>
       ) : user ? (
-        // Logged-in buyer: inline booking request form
+        <div style={styles.secondaryCard}>
+          <h4 style={styles.sectionLabel}>Contact the Seller</h4>
+          {existingInquiryStatus === 'open' ? (
+            <div style={styles.inquiryStateBox}>
+              <p style={styles.inquiryStateText}>
+                You already have an open inquiry for this listing.
+              </p>
+              <p style={styles.inquiryStateMeta}>
+                Need to follow up later? You can review it from <Link to="/inquiries/mine" style={styles.inlineLink}>My Inquiries</Link>.
+              </p>
+            </div>
+          ) : existingInquiryStatus === 'closed' ? (
+            <div style={styles.inquiryStateBoxMuted}>
+              <p style={styles.inquiryStateTextMuted}>
+                You previously contacted the seller and that inquiry is now closed.
+              </p>
+              <p style={styles.inquiryStateMetaMuted}>
+                Closed inquiries stay visible in <Link to="/inquiries/mine" style={styles.inlineLinkMuted}>My Inquiries</Link> for reference.
+              </p>
+            </div>
+          ) : inquirySuccess ? (
+            <p style={styles.bookingSuccess}>
+              Inquiry sent. <Link to="/inquiries/mine" style={{ color: '#15803d' }}>View My Inquiries</Link>.
+            </p>
+          ) : (
+            <form onSubmit={handleInquiry}>
+              {inquiryError && <p style={styles.bookingError}>{inquiryError}</p>}
+              <div style={{ marginBottom: 12 }}>
+                <label style={styles.textareaLabel}>
+                  Message to seller <span style={styles.labelHint}>(required, max 1000 chars)</span>
+                </label>
+                <textarea
+                  style={styles.textarea}
+                  value={inquiryMsg}
+                  onChange={(e) => setInquiryMsg(e.target.value)}
+                  placeholder="e.g. Is this piano still available, and can you share its service history?"
+                  maxLength={1000}
+                  required
+                />
+              </div>
+              <button
+                type="submit"
+                style={styles.btnSecondaryAction}
+                disabled={inquirySubmitting}
+              >
+                {inquirySubmitting ? 'Sending...' : 'Send Inquiry'}
+              </button>
+            </form>
+          )}
+        </div>
+      ) : (
+        <div style={styles.secondaryCard}>
+          <p style={{ margin: 0, fontSize: 14, color: '#6b7280' }}>
+            <Link to="/login" style={{ color: '#2563eb' }}>Log in</Link> to contact the seller.
+          </p>
+        </div>
+      )}
+
+      {isOwner ? (
+        <div style={styles.bookingCard}>
+          <h4 style={styles.sectionLabel}>Booking Requests</h4>
+          <p style={styles.cardHint}>
+            Booking requests are a stronger next step after a buyer has reviewed your listing or already contacted you.
+          </p>
+          <Link to={`/listings/${listing.id}/bookings`} style={styles.btnViewCardAction}>
+            View Bookings for This Listing
+          </Link>
+        </div>
+      ) : user ? (
         <div style={styles.bookingCard}>
           <h4 style={styles.sectionLabel}>Make a Booking Request</h4>
           {!canReceiveBookings ? (
@@ -330,19 +444,17 @@ export function ListingDetailPage() {
             </p>
           ) : bookingSuccess ? (
             <p style={styles.bookingSuccess}>
-              ✓ Request sent!{' '}
-              <Link to="/bookings/mine" style={{ color: '#15803d' }}>View My Bookings</Link>.
+              Request sent. <Link to="/bookings/mine" style={{ color: '#15803d' }}>View My Bookings</Link>.
             </p>
           ) : (
             <form onSubmit={handleBooking}>
               {bookingError && <p style={styles.bookingError}>{bookingError}</p>}
               <div style={{ marginBottom: 12 }}>
-                <label style={{ display: 'block', fontSize: 13, marginBottom: 6, color: '#4b5563' }}>
-                  Message to seller{' '}
-                  <span style={{ color: '#9ca3af' }}>(optional, max 500 chars)</span>
+                <label style={styles.textareaLabel}>
+                  Message to seller <span style={styles.labelHint}>(optional, max 500 chars)</span>
                 </label>
                 <textarea
-                  style={styles.bookingTextarea}
+                  style={styles.textarea}
                   value={bookingMsg}
                   onChange={(e) => setBookingMsg(e.target.value)}
                   placeholder="e.g. Available Saturday afternoon after 2pm"
@@ -360,7 +472,6 @@ export function ListingDetailPage() {
           )}
         </div>
       ) : (
-        // Not logged in: prompt to sign in
         <div style={styles.bookingCard}>
           <p style={{ margin: 0, fontSize: 14, color: '#6b7280' }}>
             <Link to="/login" style={{ color: '#2563eb' }}>Log in</Link> to make a booking request.
@@ -371,7 +482,6 @@ export function ListingDetailPage() {
   );
 }
 
-// Small helper component for key-value rows in the details section
 function MetaRow({ label, value }: { label: string; value: string }) {
   return (
     <div style={{ display: 'flex', gap: 12, padding: '6px 0', borderBottom: '1px solid #f3f4f6' }}>
@@ -381,13 +491,21 @@ function MetaRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-// ── Inline styles ─────────────────────────────────────────────────────────────
 const styles: Record<string, React.CSSProperties> = {
   page: { ...sharedPageStyle, maxWidth: 700 },
   back: sharedBackLinkStyle,
   card: { border: '1px solid #e5e7eb', borderRadius: 10, padding: 28, background: '#fff' },
+  saveFeedback: {
+    margin: '0 0 18px',
+    padding: '10px 12px',
+    borderRadius: 8,
+    background: '#eff6ff',
+    color: '#1d4ed8',
+    border: '1px solid #bfdbfe',
+    fontSize: 13,
+  },
   cardHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16 },
-  badges: { display: 'flex', gap: 8, marginBottom: 10 },
+  badges: { display: 'flex', gap: 8, marginBottom: 10, flexWrap: 'wrap' },
   condition: {
     fontSize: 12, padding: '2px 8px', borderRadius: 4,
     background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0',
@@ -406,7 +524,7 @@ const styles: Record<string, React.CSSProperties> = {
   title: { ...sharedPageHeadingStyle, margin: '0 0 8px' },
   price: { margin: 0, fontSize: 24, fontWeight: 700, color: '#2563eb' },
   subheading: { ...sharedPageSubheadingStyle, marginTop: 10 },
-  ownerActions: { display: 'flex', gap: 10, flexShrink: 0 },
+  ownerActions: { display: 'flex', gap: 10, flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' },
   btnEdit: {
     padding: '7px 16px', background: '#f3f4f6', color: '#374151',
     borderRadius: 6, textDecoration: 'none', fontSize: 14,
@@ -443,6 +561,11 @@ const styles: Record<string, React.CSSProperties> = {
   metaGrid: { display: 'flex', flexDirection: 'column' },
   info: { textAlign: 'center', marginTop: 60, color: '#6b7280' },
   error: { textAlign: 'center', marginTop: 60, color: '#dc2626' },
+  secondaryCard: {
+    marginTop: 24, border: '1px solid #e5e7eb', borderRadius: 10,
+    padding: 24, background: '#fff',
+  },
+  cardHint: { margin: '0 0 12px', color: '#6b7280', fontSize: 13, lineHeight: 1.6 },
   bookingCard: {
     marginTop: 24, border: '1px solid #e5e7eb', borderRadius: 10,
     padding: 24, background: '#fff',
@@ -450,16 +573,40 @@ const styles: Record<string, React.CSSProperties> = {
   bookingMuted: { margin: 0, color: '#6b7280', fontSize: 14, lineHeight: 1.6 },
   bookingSuccess: { margin: 0, color: '#15803d', fontSize: 14 },
   bookingError: { margin: '0 0 10px', color: '#dc2626', fontSize: 13 },
-  bookingTextarea: {
+  inquiryStateBox: {
+    padding: '12px 14px',
+    borderRadius: 8,
+    background: '#eff6ff',
+    border: '1px solid #bfdbfe',
+  },
+  inquiryStateBoxMuted: {
+    padding: '12px 14px',
+    borderRadius: 8,
+    background: '#f3f4f6',
+    border: '1px solid #d1d5db',
+  },
+  inquiryStateText: { margin: '0 0 6px', color: '#1d4ed8', fontSize: 13, fontWeight: 600 },
+  inquiryStateTextMuted: { margin: '0 0 6px', color: '#4b5563', fontSize: 13, fontWeight: 600 },
+  inquiryStateMeta: { margin: 0, color: '#1e40af', fontSize: 13, lineHeight: 1.6 },
+  inquiryStateMetaMuted: { margin: 0, color: '#6b7280', fontSize: 13, lineHeight: 1.6 },
+  inlineLink: { color: '#1d4ed8' },
+  inlineLinkMuted: { color: '#4b5563' },
+  textareaLabel: { display: 'block', fontSize: 13, marginBottom: 6, color: '#4b5563' },
+  labelHint: { color: '#9ca3af' },
+  textarea: {
     width: '100%', minHeight: 80, padding: '8px 12px',
     border: '1px solid #d1d5db', borderRadius: 6, fontSize: 14,
-    resize: 'vertical' as const, boxSizing: 'border-box' as const,
+    resize: 'vertical', boxSizing: 'border-box',
   },
   btnBook: {
     padding: '8px 20px', background: '#2563eb', color: '#fff',
     border: 'none', borderRadius: 6, fontSize: 14, cursor: 'pointer',
   },
-  btnViewBookings: {
+  btnSecondaryAction: {
+    padding: '8px 20px', background: '#0f766e', color: '#fff',
+    border: 'none', borderRadius: 6, fontSize: 14, cursor: 'pointer',
+  },
+  btnViewCardAction: {
     display: 'inline-block', padding: '7px 16px',
     background: '#eff6ff', color: '#2563eb',
     border: '1px solid #bfdbfe', borderRadius: 6,

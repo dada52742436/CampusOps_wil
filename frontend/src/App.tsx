@@ -6,10 +6,12 @@ import { DashboardPage } from './pages/DashboardPage';
 import { EditListingPage } from './pages/EditListingPage';
 import { ListingBookingsPage } from './pages/ListingBookingsPage';
 import { ListingDetailPage } from './pages/ListingDetailPage';
+import { ListingInquiriesPage } from './pages/ListingInquiriesPage';
 import { ListingsPage } from './pages/ListingsPage';
 import { LoginPage } from './pages/LoginPage';
 import { CreateListingPage } from './pages/CreateListingPage';
 import { MyBookingsPage } from './pages/MyBookingsPage';
+import { MyInquiriesPage } from './pages/MyInquiriesPage';
 import { MyListingsPage } from './pages/MyListingsPage';
 import { MySavedListingsPage } from './pages/MySavedListingsPage';
 import { RegisterPage } from './pages/RegisterPage';
@@ -68,6 +70,14 @@ function App() {
               }
             />
             <Route
+              path="/inquiries/mine"
+              element={
+                <ProtectedRoute>
+                  <MyInquiriesPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/saved-listings/mine"
               element={
                 <ProtectedRoute>
@@ -80,6 +90,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <ListingBookingsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/listings/:id/inquiries"
+              element={
+                <ProtectedRoute>
+                  <ListingInquiriesPage />
                 </ProtectedRoute>
               }
             />

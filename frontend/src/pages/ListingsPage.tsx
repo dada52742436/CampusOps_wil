@@ -34,6 +34,7 @@ export function ListingsPage() {
   const [result, setResult] = useState<PaginatedListings | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [saveFeedback, setSaveFeedback] = useState('');
   const [savedListingIds, setSavedListingIds] = useState<number[]>([]);
   const [saveLoadingId, setSaveLoadingId] = useState<number | null>(null);
 
@@ -96,14 +97,17 @@ export function ListingsPage() {
   async function handleToggleSave(listingId: number, isSaved: boolean) {
     setSaveLoadingId(listingId);
     setError('');
+    setSaveFeedback('');
 
     try {
       if (isSaved) {
         await removeSavedListing(listingId);
         setSavedListingIds((prev) => prev.filter((id) => id !== listingId));
+        setSaveFeedback('Listing removed from your saved collection.');
       } else {
         await saveListing(listingId);
         setSavedListingIds((prev) => [...prev, listingId]);
+        setSaveFeedback('Listing saved to your collection.');
       }
     } catch {
       setError(isSaved ? 'Failed to remove saved listing.' : 'Failed to save listing.');
@@ -127,6 +131,7 @@ export function ListingsPage() {
       <p style={styles.marketplaceNote}>
         Public marketplace results only show active listings that are currently available.
       </p>
+      {saveFeedback && <p style={styles.saveFeedback}>{saveFeedback}</p>}
 
       <div style={styles.filterBar}>
         <input
@@ -291,6 +296,15 @@ const styles: Record<string, React.CSSProperties> = {
   title: { margin: 0, fontSize: 24 },
   subtitle: { margin: '8px 0 0', color: '#64748b', fontSize: 14 },
   marketplaceNote: { margin: '0 0 16px', color: '#6b7280', fontSize: 14, lineHeight: 1.6 },
+  saveFeedback: {
+    margin: '0 0 16px',
+    padding: '10px 12px',
+    borderRadius: 8,
+    background: '#eff6ff',
+    color: '#1d4ed8',
+    border: '1px solid #bfdbfe',
+    fontSize: 13,
+  },
   filterBar: {
     display: 'flex',
     flexWrap: 'wrap',

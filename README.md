@@ -1,74 +1,75 @@
 # PianoHub
 
-**A second-hand piano marketplace for Melbourne.**
+Portfolio-quality full-stack marketplace project for second-hand pianos in Melbourne.
 
-Find, buy, and sell quality second-hand pianos — all in one place, built for the local Melbourne community.
+## Overview
 
----
-
-## What is PianoHub?
-
-PianoHub connects piano buyers and sellers across Melbourne. Whether you're looking for a beginner upright or a premium grand piano, you can browse listings, filter by brand or condition, upload photos, and request bookings — all without digging through scattered classifieds or Facebook groups.
-
----
+PianoHub is built to feel more like a real evolving product than a CRUD demo.  
+It currently covers authentication, listing management, booking requests, saved listings, seller inquiries, listing images, and ownership-based access control.
 
 ## Features
 
-### Browse & Search Without an Account
-- View all available listings in a paginated grid (6 per page)
-- Search by keyword across title, brand, and description
-- Filter by condition (Excellent / Good / Fair / Poor)
-- Filter by price range and sort by price or date
-- Public marketplace shows active listings only
+### Public marketplace
 
-### Sell Your Piano
-- Create a free account and post a listing in minutes
-- Describe brand, type (upright / grand / digital / keyboard), condition, price, and suburb
-- Upload up to 5 photos per listing (JPEG / PNG / WebP, max 5 MB each)
-- Edit or remove your listing at any time from **My Listings**
+- Browse active listings without an account
+- Search by keyword
+- Filter by brand, condition, and price range
+- Paginated listing results
+- Listing detail pages
+
+### Seller workflows
+
+- Create, edit, and delete listings
 - Manage listing status with `active`, `sold`, and `archived`
+- Upload and delete listing images
+- Review booking requests per listing
+- Review buyer inquiries per listing
 
-### Book a Viewing
-- Submit a booking request with a preferred date and message to the seller
-- Sellers can accept or decline requests from their dashboard
-- Booking status tracked: Pending → Accepted / Declined
+### Buyer workflows
 
-### Secure by Design
-- Passwords hashed with bcrypt (10 rounds)
-- JWT Bearer tokens expire after 7 days
-- All write operations enforce server-side ownership checks
-- File uploads validated by MIME type and size; stored outside the web root
+- Register and log in
+- Send booking requests
+- Track booking status
+- Save listings for later
+- Send lightweight inquiries to sellers
+- Track and close personal inquiries
 
----
+### Security and business rules
 
-## Tech Stack
+- JWT authentication
+- bcrypt password hashing
+- Server-side ownership enforcement
+- Seller/buyer role behaviour expressed through foreign keys, not separate account types
+- Public marketplace only shows `active` listings
+- `sold` and `archived` listings cannot receive new bookings or inquiries
+
+## Tech stack
 
 | Layer | Technology |
-|-------|-----------|
+| --- | --- |
 | Frontend | React 19, TypeScript, Vite 8, React Router v7 |
-| Backend | NestJS 11, TypeScript (strict) |
-| Database | PostgreSQL via Prisma 7 ORM |
-| Auth | JWT (Bearer token) + bcrypt |
-| File upload | Multer + NestJS ServeStaticModule |
-| API docs | Swagger UI (`@nestjs/swagger`) |
-| HTTP | Axios with automatic token injection |
+| Backend | NestJS 11, TypeScript |
+| Database | PostgreSQL |
+| ORM | Prisma 7 |
+| Auth | JWT + bcrypt |
+| HTTP | Axios |
+| API docs | Swagger |
 
----
+## Getting started
 
-## Getting Started
-
-### Prerequisites
-
-- Node.js 22+
-- PostgreSQL running locally on port 5432
-
-> **Docker alternative:** skip the manual steps and use `docker compose up` — see [Docker](#docker) below.
-
-### 1. Configure environment
+### 1. Install dependencies
 
 ```bash
-cp backend/.env.example backend/.env
+cd backend
+npm install
+
+cd ../frontend
+npm install
 ```
+
+### 2. Configure environment
+
+Create `backend/.env`:
 
 ```env
 DATABASE_URL="postgresql://postgres:yourpassword@localhost:5432/pianohub"
@@ -76,126 +77,110 @@ JWT_SECRET="your-secret-key"
 JWT_EXPIRES_IN="7d"
 ```
 
-### 2. Install dependencies
-
-```bash
-cd backend && npm install
-cd ../frontend && npm install
-```
-
 ### 3. Set up the database
 
 ```bash
 cd backend
 npx prisma migrate dev
+npx prisma generate
 ```
 
-### 4. Seed demo data (optional)
+### 4. Seed demo data
 
 ```bash
 cd backend
 npx prisma db seed
 ```
 
-This creates two demo accounts and syncs 7 sample piano listings:
+Demo accounts:
 
-| Email | Password | Role |
-|-------|----------|------|
-| alice@demo.com | demo123! | Seller (4 listings) |
-| bob@demo.com | demo123! | Seller (3 listings) |
+- `alice@demo.com` / `demo123!`
+- `bob@demo.com` / `demo123!`
 
-The seed is idempotent:
+Seed behaviour:
+
 - demo users are upserted by email
-- demo listings are synced by owner + title
-- you can re-run seed even if your database already contains manual listings
+- demo listings are synced by `owner + title`
+- seed can be re-run even if manual listings already exist
 
-### 5. Start the backend
+### 5. Start the app
+
+Backend:
 
 ```bash
 cd backend
 npm run start:dev
-# API:    http://localhost:3001
-# Docs:   http://localhost:3001/docs
-# Files:  http://localhost:3001/uploads/
 ```
 
-### 6. Start the frontend
+Frontend:
 
 ```bash
 cd frontend
 npm run dev
-# App: http://localhost:3000
 ```
 
----
+App URLs:
 
-## API Documentation
+- Frontend: `http://localhost:3000`
+- Backend API: `http://localhost:3001`
+- Swagger: `http://localhost:3001/docs`
 
-Interactive Swagger UI is available at **[http://localhost:3001/docs](http://localhost:3001/docs)** when the backend is running.
+## Testing
 
-Click **Authorize** and paste a Bearer token (obtained from `POST /auth/login`) to test protected endpoints directly in the browser.
-
----
-
-## Running Tests
+Backend unit tests:
 
 ```bash
 cd backend
-npx jest --runInBand # unit tests (31 tests, 5 suites)
-npm run test:e2e     # end-to-end baseline (38 tests)
+npx jest --runInBand
 ```
 
----
-
-## Docker
-
-A `docker-compose.yml` is provided at the repository root for a fully containerised setup:
+Backend e2e baseline:
 
 ```bash
-docker compose up --build
+cd backend
+npm run test:e2e
 ```
 
-Services started:
-- **postgres** — PostgreSQL 16 on port 5432
-- **backend** — NestJS API on port 3001 (runs migrations + seed automatically)
-- **frontend** — Vite preview build on port 3000
+Frontend type check:
 
-Environment variables are defined in `docker-compose.yml`. Override them with a `.env` file at the project root for production use.
-
----
-
-## Project Structure
-
-```
-├── backend/
-│   ├── prisma/          # schema, migrations, seed script
-│   ├── src/
-│   │   ├── auth/        # register, login, JWT strategy
-│   │   ├── listings/    # CRUD + search/filter/pagination
-│   │   │   └── images/  # photo upload & management
-│   │   ├── bookings/    # booking requests workflow
-│   │   └── prisma/      # PrismaService (driver-adapter pattern)
-│   └── uploads/         # uploaded images (git-ignored)
-└── frontend/
-    └── src/
-        ├── api/         # Axios wrappers
-        ├── components/  # shared UI components
-        ├── context/     # AuthContext (JWT state)
-        ├── pages/       # route-level page components
-        └── styles/      # shared style constants
+```bash
+cd frontend
+.\node_modules\.bin\tsc -b --pretty false
 ```
 
----
+Current verified baseline:
+
+- unit tests: `43`
+- e2e tests: `53`
+
+## Project structure
+
+```text
+backend/
+  prisma/
+  src/
+    auth/
+    bookings/
+    inquiries/
+    listings/
+      images/
+    prisma/
+    saved-listings/
+    users/
+frontend/
+  src/
+    api/
+    components/
+    constants/
+    context/
+    pages/
+    styles/
+```
 
 ## Roadmap
 
-- [ ] Real-time notifications (WebSocket)
-- [ ] In-app messaging between buyers and sellers
-- [ ] Saved / favourited listings
-- [ ] Global navigation bar with search
-
----
-
-## License
-
-MIT
+- URL-synced search and filter state
+- Global search from the navbar
+- Stronger dashboard and activity views
+- Deployment hardening
+- Further marketplace UX refinement
